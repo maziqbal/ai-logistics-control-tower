@@ -1,0 +1,16 @@
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+main {
+  padding: 32px;
+}

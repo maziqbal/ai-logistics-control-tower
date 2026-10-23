@@ -3,5 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.34.7",
-  "scripts": {}
+  "scripts": {
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "build": "pnpm -r --if-present build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
+  }
 }

@@ -266,9 +266,15 @@ A task is Done when:
 
 ## Current Iteration
 
-**Phase:** 0 — Engineering Foundation  
-**Current task:** ALT-002 — Establish delivery roadmap  
-**Next task:** Create ADR structure and initial records
+**Phase:** 1 — Dispatch Planning
+**Current task:** ALT-014 — Integrate Drizzle with NestJS
+**Status:** Implementation complete, pending PR review
+
+### Completed Phase 1 Foundations
+
+- [x] ALT-011 — Drizzle/PostGIS technical spike
+- [x] ALT-012 — Logistics domain model
+- [x] ALT-013 — Database schema, migrations, and constraints
 
 ## Change Management
 

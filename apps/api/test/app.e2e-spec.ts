@@ -1,7 +1,12 @@
+import { INestApplication, Module } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+
 import { AppModule } from '../src/app.module';
+import { DatabaseModule } from '../src/db/database.module';
+
+@Module({})
+class MockDatabaseModule {}
 
 describe('Health endpoint (e2e)', () => {
   let app: INestApplication;
@@ -9,14 +14,17 @@ describe('Health endpoint (e2e)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideModule(DatabaseModule)
+      .useModule(MockDatabaseModule)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('GET /api/v1/health returns HTTP 200', async () => {

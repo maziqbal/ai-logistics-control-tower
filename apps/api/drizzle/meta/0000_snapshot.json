@@ -1,0 +1,431 @@
+{
+  "id": "4f64f511-b24d-4033-aa75-ca393168b6b1",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.delivery_days": {
+      "name": "delivery_days",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "service_date": {
+          "name": "service_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operating_area": {
+          "name": "operating_area",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "delivery_days_service_date_area_unique": {
+          "name": "delivery_days_service_date_area_unique",
+          "nullsNotDistinct": false,
+          "columns": ["service_date", "operating_area"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.drivers": {
+      "name": "drivers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vehicles": {
+      "name": "vehicles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "registration_number": {
+          "name": "registration_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "vehicles_registration_number_unique": {
+          "name": "vehicles_registration_number_unique",
+          "nullsNotDistinct": false,
+          "columns": ["registration_number"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.routes": {
+      "name": "routes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "delivery_day_id": {
+          "name": "delivery_day_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "driver_id": {
+          "name": "driver_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vehicle_id": {
+          "name": "vehicle_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "route_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "routes_delivery_day_id_delivery_days_id_fk": {
+          "name": "routes_delivery_day_id_delivery_days_id_fk",
+          "tableFrom": "routes",
+          "tableTo": "delivery_days",
+          "columnsFrom": ["delivery_day_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "routes_driver_id_drivers_id_fk": {
+          "name": "routes_driver_id_drivers_id_fk",
+          "tableFrom": "routes",
+          "tableTo": "drivers",
+          "columnsFrom": ["driver_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "routes_vehicle_id_vehicles_id_fk": {
+          "name": "routes_vehicle_id_vehicles_id_fk",
+          "tableFrom": "routes",
+          "tableTo": "vehicles",
+          "columnsFrom": ["vehicle_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "routes_delivery_day_driver_unique": {
+          "name": "routes_delivery_day_driver_unique",
+          "nullsNotDistinct": false,
+          "columns": ["delivery_day_id", "driver_id"]
+        },
+        "routes_delivery_day_vehicle_unique": {
+          "name": "routes_delivery_day_vehicle_unique",
+          "nullsNotDistinct": false,
+          "columns": ["delivery_day_id", "vehicle_id"]
+        },
+        "routes_id_delivery_day_unique": {
+          "name": "routes_id_delivery_day_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "delivery_day_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "routes_version_positive": {
+          "name": "routes_version_positive",
+          "value": "\"routes\".\"version\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.stops": {
+      "name": "stops",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "route_id": {
+          "name": "route_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delivery_day_id": {
+          "name": "delivery_day_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sequence": {
+          "name": "sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_key": {
+          "name": "location_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "geometry(point)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "stop_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "stops_route_delivery_day_fk": {
+          "name": "stops_route_delivery_day_fk",
+          "tableFrom": "stops",
+          "tableTo": "routes",
+          "columnsFrom": ["route_id", "delivery_day_id"],
+          "columnsTo": ["id", "delivery_day_id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "stops_id_delivery_day_unique": {
+          "name": "stops_id_delivery_day_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "delivery_day_id"]
+        },
+        "stops_route_sequence_unique": {
+          "name": "stops_route_sequence_unique",
+          "nullsNotDistinct": false,
+          "columns": ["route_id", "sequence"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "stops_sequence_positive": {
+          "name": "stops_sequence_positive",
+          "value": "\"stops\".\"sequence\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.parcels": {
+      "name": "parcels",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "delivery_day_id": {
+          "name": "delivery_day_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stop_id": {
+          "name": "stop_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tracking_number": {
+          "name": "tracking_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "destination": {
+          "name": "destination",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_key": {
+          "name": "location_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "geometry(point)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "parcel_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "failure_reason": {
+          "name": "failure_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "parcels_delivery_day_id_delivery_days_id_fk": {
+          "name": "parcels_delivery_day_id_delivery_days_id_fk",
+          "tableFrom": "parcels",
+          "tableTo": "delivery_days",
+          "columnsFrom": ["delivery_day_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "parcels_stop_delivery_day_fk": {
+          "name": "parcels_stop_delivery_day_fk",
+          "tableFrom": "parcels",
+          "tableTo": "stops",
+          "columnsFrom": ["stop_id", "delivery_day_id"],
+          "columnsTo": ["id", "delivery_day_id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "parcels_tracking_number_unique": {
+          "name": "parcels_tracking_number_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tracking_number"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "parcels_failure_reason_consistency": {
+          "name": "parcels_failure_reason_consistency",
+          "value": "(\"parcels\".\"status\" = 'failed' AND \"parcels\".\"failure_reason\" IS NOT NULL AND length(trim(\"parcels\".\"failure_reason\")) > 0)\n          OR (\"parcels\".\"status\" <> 'failed' AND \"parcels\".\"failure_reason\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.route_status": {
+      "name": "route_status",
+      "schema": "public",
+      "values": ["draft", "ready", "active", "completed"]
+    },
+    "public.stop_status": {
+      "name": "stop_status",
+      "schema": "public",
+      "values": ["pending", "completed", "skipped"]
+    },
+    "public.parcel_status": {
+      "name": "parcel_status",
+      "schema": "public",
+      "values": ["pending", "delivered", "failed", "skipped"]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

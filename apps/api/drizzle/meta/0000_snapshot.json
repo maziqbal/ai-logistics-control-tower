@@ -35,10 +35,7 @@
         "delivery_days_service_date_area_unique": {
           "name": "delivery_days_service_date_area_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "service_date",
-            "operating_area"
-          ]
+          "columns": ["service_date", "operating_area"]
         }
       },
       "policies": {},
@@ -110,9 +107,7 @@
         "vehicles_registration_number_unique": {
           "name": "vehicles_registration_number_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "registration_number"
-          ]
+          "columns": ["registration_number"]
         }
       },
       "policies": {},
@@ -170,12 +165,8 @@
           "name": "routes_delivery_day_id_delivery_days_id_fk",
           "tableFrom": "routes",
           "tableTo": "delivery_days",
-          "columnsFrom": [
-            "delivery_day_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["delivery_day_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -183,12 +174,8 @@
           "name": "routes_driver_id_drivers_id_fk",
           "tableFrom": "routes",
           "tableTo": "drivers",
-          "columnsFrom": [
-            "driver_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["driver_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -196,12 +183,8 @@
           "name": "routes_vehicle_id_vehicles_id_fk",
           "tableFrom": "routes",
           "tableTo": "vehicles",
-          "columnsFrom": [
-            "vehicle_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["vehicle_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -211,26 +194,17 @@
         "routes_delivery_day_driver_unique": {
           "name": "routes_delivery_day_driver_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "delivery_day_id",
-            "driver_id"
-          ]
+          "columns": ["delivery_day_id", "driver_id"]
         },
         "routes_delivery_day_vehicle_unique": {
           "name": "routes_delivery_day_vehicle_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "delivery_day_id",
-            "vehicle_id"
-          ]
+          "columns": ["delivery_day_id", "vehicle_id"]
         },
         "routes_id_delivery_day_unique": {
           "name": "routes_id_delivery_day_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "delivery_day_id"
-          ]
+          "columns": ["id", "delivery_day_id"]
         }
       },
       "policies": {},
@@ -298,14 +272,8 @@
           "name": "stops_route_delivery_day_fk",
           "tableFrom": "stops",
           "tableTo": "routes",
-          "columnsFrom": [
-            "route_id",
-            "delivery_day_id"
-          ],
-          "columnsTo": [
-            "id",
-            "delivery_day_id"
-          ],
+          "columnsFrom": ["route_id", "delivery_day_id"],
+          "columnsTo": ["id", "delivery_day_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -315,18 +283,12 @@
         "stops_id_delivery_day_unique": {
           "name": "stops_id_delivery_day_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "delivery_day_id"
-          ]
+          "columns": ["id", "delivery_day_id"]
         },
         "stops_route_sequence_unique": {
           "name": "stops_route_sequence_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "route_id",
-            "sequence"
-          ]
+          "columns": ["route_id", "sequence"]
         }
       },
       "policies": {},
@@ -406,12 +368,8 @@
           "name": "parcels_delivery_day_id_delivery_days_id_fk",
           "tableFrom": "parcels",
           "tableTo": "delivery_days",
-          "columnsFrom": [
-            "delivery_day_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["delivery_day_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -419,14 +377,8 @@
           "name": "parcels_stop_delivery_day_fk",
           "tableFrom": "parcels",
           "tableTo": "stops",
-          "columnsFrom": [
-            "stop_id",
-            "delivery_day_id"
-          ],
-          "columnsTo": [
-            "id",
-            "delivery_day_id"
-          ],
+          "columnsFrom": ["stop_id", "delivery_day_id"],
+          "columnsTo": ["id", "delivery_day_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -436,9 +388,7 @@
         "parcels_tracking_number_unique": {
           "name": "parcels_tracking_number_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "tracking_number"
-          ]
+          "columns": ["tracking_number"]
         }
       },
       "policies": {},
@@ -455,31 +405,17 @@
     "public.route_status": {
       "name": "route_status",
       "schema": "public",
-      "values": [
-        "draft",
-        "ready",
-        "active",
-        "completed"
-      ]
+      "values": ["draft", "ready", "active", "completed"]
     },
     "public.stop_status": {
       "name": "stop_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "completed",
-        "skipped"
-      ]
+      "values": ["pending", "completed", "skipped"]
     },
     "public.parcel_status": {
       "name": "parcel_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "delivered",
-        "failed",
-        "skipped"
-      ]
+      "values": ["pending", "delivered", "failed", "skipped"]
     }
   },
   "schemas": {},

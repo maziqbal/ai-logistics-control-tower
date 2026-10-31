@@ -6,6 +6,7 @@ import { DeliveryDaysModule } from './delivery-days/delivery-days.module';
 import { DriversModule } from './drivers/drivers.module';
 import { RoutesModule } from './routes/routes.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
+import { ParcelsModule } from './parcels/parcels.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     VehiclesModule,
     RoutesModule,
     StopsModule,
+    ParcelsModule,
   ],
   controllers: [AppController],
 })

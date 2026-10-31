@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
 
-import { deliveryDays, parcels } from '../db/schema';
+import { deliveryDays, parcels, routes, stops } from '../db/schema';
 import { createTestDatabase } from '../db/testing/test-database';
 import { ParcelsService } from './parcels.service';
 
@@ -12,6 +17,8 @@ describe('ParcelsService (integration)', () => {
   let service: ParcelsService;
 
   const createdDayIds: string[] = [];
+  const createdRouteIds: string[] = [];
+  const createdStopIds: string[] = [];
   const createdParcelIds: string[] = [];
 
   beforeAll(() => {
@@ -25,8 +32,17 @@ describe('ParcelsService (integration)', () => {
   afterAll(async () => {
     try {
       if (db) {
+        // Delete children before parents.
         for (const id of createdParcelIds) {
           await db.delete(parcels).where(eq(parcels.id, id));
+        }
+
+        for (const id of createdStopIds) {
+          await db.delete(stops).where(eq(stops.id, id));
+        }
+
+        for (const id of createdRouteIds) {
+          await db.delete(routes).where(eq(routes.id, id));
         }
 
         for (const id of createdDayIds) {
@@ -50,6 +66,54 @@ describe('ParcelsService (integration)', () => {
     createdDayIds.push(day.id);
     return day;
   }
+
+  async function createRoute(dayId: string) {
+    const [route] = await db
+      .insert(routes)
+      .values({
+        deliveryDayId: dayId,
+      })
+      .returning();
+
+    createdRouteIds.push(route.id);
+    return route;
+  }
+
+  async function createParcel(dayId: string) {
+    const parcel = await service.create(dayId, {
+      trackingNumber: `PKG-${randomUUID()}`,
+      destination: 'Mannerheimintie 10, Helsinki',
+      locationKey: `location-${randomUUID()}`,
+      latitude: 60.1699,
+      longitude: 24.9384,
+    });
+
+    createdParcelIds.push(parcel.id);
+    return parcel;
+  }
+
+  async function createStop(dayId: string) {
+    // Every stop must belong to a real route.
+    const route = await createRoute(dayId);
+
+    const [stop] = await db
+      .insert(stops)
+      .values({
+        deliveryDayId: dayId,
+        routeId: route.id,
+        sequence: 1,
+        locationKey: `stop-location-${randomUUID()}`,
+        position: sql`ST_SetSRID(ST_MakePoint(24.9384, 60.1699), 4326)`,
+      })
+      .returning();
+
+    createdStopIds.push(stop.id);
+    return stop;
+  }
+
+  // --------------------------------------------------
+  // ALT-020: Parcel creation and listing
+  // --------------------------------------------------
 
   it('creates a pending unassigned parcel with correct PostGIS coordinates', async () => {
     const day = await createDay();
@@ -204,5 +268,136 @@ describe('ParcelsService (integration)', () => {
     await expect(service.findByDeliveryDay(randomUUID())).rejects.toThrow(
       NotFoundException,
     );
+  });
+
+  // --------------------------------------------------
+  // ALT-021: Parcel-to-stop assignment
+  // --------------------------------------------------
+
+  it('assigns a parcel to a stop on the same delivery day', async () => {
+    const day = await createDay();
+    const parcel = await createParcel(day.id);
+    const stop = await createStop(day.id);
+
+    const updated = await service.assignToStop(day.id, parcel.id, {
+      stopId: stop.id,
+    });
+
+    expect(updated).toMatchObject({
+      id: parcel.id,
+      deliveryDayId: day.id,
+      stopId: stop.id,
+      status: 'pending',
+      failureReason: null,
+    });
+
+    const [saved] = await db
+      .select()
+      .from(parcels)
+      .where(eq(parcels.id, parcel.id));
+
+    expect(saved.stopId).toBe(stop.id);
+  });
+
+  it('reassigns a parcel to another stop on the same day', async () => {
+    const day = await createDay();
+    const parcel = await createParcel(day.id);
+    const firstStop = await createStop(day.id);
+    const secondStop = await createStop(day.id);
+
+    await service.assignToStop(day.id, parcel.id, {
+      stopId: firstStop.id,
+    });
+
+    const updated = await service.assignToStop(day.id, parcel.id, {
+      stopId: secondStop.id,
+    });
+
+    expect(updated.stopId).toBe(secondStop.id);
+
+    const [saved] = await db
+      .select({ stopId: parcels.stopId })
+      .from(parcels)
+      .where(eq(parcels.id, parcel.id));
+
+    expect(saved.stopId).toBe(secondStop.id);
+  });
+
+  it('allows multiple parcels to share one stop', async () => {
+    const day = await createDay();
+    const stop = await createStop(day.id);
+    const firstParcel = await createParcel(day.id);
+    const secondParcel = await createParcel(day.id);
+
+    const first = await service.assignToStop(day.id, firstParcel.id, {
+      stopId: stop.id,
+    });
+
+    const second = await service.assignToStop(day.id, secondParcel.id, {
+      stopId: stop.id,
+    });
+
+    expect(first.stopId).toBe(stop.id);
+    expect(second.stopId).toBe(stop.id);
+  });
+
+  it('rejects assignment to a stop from another delivery day', async () => {
+    const dayA = await createDay();
+    const dayB = await createDay();
+
+    const parcel = await createParcel(dayA.id);
+    const stop = await createStop(dayB.id);
+
+    await expect(
+      service.assignToStop(dayA.id, parcel.id, {
+        stopId: stop.id,
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    const [saved] = await db
+      .select({ stopId: parcels.stopId })
+      .from(parcels)
+      .where(eq(parcels.id, parcel.id));
+
+    expect(saved.stopId).toBeNull();
+  });
+
+  it('rejects assignment for an unknown delivery day', async () => {
+    await expect(
+      service.assignToStop(randomUUID(), randomUUID(), {
+        stopId: randomUUID(),
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('rejects assignment for a missing parcel or a parcel from another day', async () => {
+    const dayA = await createDay();
+    const dayB = await createDay();
+
+    const stop = await createStop(dayA.id);
+    const otherParcel = await createParcel(dayB.id);
+
+    await expect(
+      service.assignToStop(dayA.id, randomUUID(), {
+        stopId: stop.id,
+      }),
+    ).rejects.toThrow(NotFoundException);
+
+    await expect(
+      service.assignToStop(dayA.id, otherParcel.id, {
+        stopId: stop.id,
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('rejects assignment to a nonexistent stop', async () => {
+    const day = await createDay();
+    const parcel = await createParcel(day.id);
+
+    await expect(
+      service.assignToStop(day.id, parcel.id, {
+        stopId: randomUUID(),
+      }),
+    ).rejects.toThrow(NotFoundException);
   });
 });

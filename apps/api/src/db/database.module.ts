@@ -1,11 +1,15 @@
 import { Global, Module } from '@nestjs/common';
 
 import { DatabaseProvider } from './database.provider';
-import { DATABASE } from './database.types';
+import { DATABASE, DATABASE_URL } from './database.types';
 
 @Global()
 @Module({
   providers: [
+    {
+      provide: DATABASE_URL,
+      useFactory: () => process.env.DATABASE_URL,
+    },
     DatabaseProvider,
     {
       provide: DATABASE,
@@ -13,6 +17,6 @@ import { DATABASE } from './database.types';
       inject: [DatabaseProvider],
     },
   ],
-  exports: [DATABASE],
+  exports: [DATABASE, DATABASE_URL],
 })
 export class DatabaseModule {}

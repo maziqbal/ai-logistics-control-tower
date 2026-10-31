@@ -5,3 +5,4 @@ import type * as schema from './schema';
 export type AppDatabase = NodePgDatabase<typeof schema>;
 
 export const DATABASE = Symbol('DATABASE');
+export const DATABASE_URL = Symbol('DATABASE_URL');

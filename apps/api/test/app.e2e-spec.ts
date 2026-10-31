@@ -5,7 +5,21 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DatabaseModule } from '../src/db/database.module';
 
-@Module({})
+import { Global } from '@nestjs/common';
+import { DATABASE } from '../src/db/database.types';
+
+// Keep your other existing imports.
+
+@Global()
+@Module({
+  providers: [
+    {
+      provide: DATABASE,
+      useValue: {},
+    },
+  ],
+  exports: [DATABASE],
+})
 class MockDatabaseModule {}
 
 describe('Health endpoint (e2e)', () => {

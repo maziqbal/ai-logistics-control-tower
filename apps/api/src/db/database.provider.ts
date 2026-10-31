@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   OnApplicationShutdown,
   OnModuleInit,
@@ -7,16 +8,14 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
 import * as schema from './schema';
-import type { AppDatabase } from './database.types';
+import { DATABASE_URL, type AppDatabase } from './database.types';
 
 @Injectable()
 export class DatabaseProvider implements OnModuleInit, OnApplicationShutdown {
   private readonly pool: Pool;
   readonly db: AppDatabase;
 
-  constructor() {
-    const databaseUrl = process.env.DATABASE_URL;
-
+  constructor(@Inject(DATABASE_URL) databaseUrl: string) {
     if (!databaseUrl) {
       throw new Error('DATABASE_URL is required');
     }

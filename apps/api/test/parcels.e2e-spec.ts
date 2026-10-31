@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
@@ -11,13 +11,15 @@ import {
   DATABASE_URL,
   type AppDatabase,
 } from '../src/db/database.types';
-import { deliveryDays, parcels } from '../src/db/schema';
+import { deliveryDays, parcels, routes, stops } from '../src/db/schema';
 
 describe('Parcels API (e2e)', () => {
   let app: INestApplication;
   let db: AppDatabase;
 
   const createdDayIds: string[] = [];
+  const createdRouteIds: string[] = [];
+  const createdStopIds: string[] = [];
   const createdParcelIds: string[] = [];
 
   const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -56,8 +58,17 @@ describe('Parcels API (e2e)', () => {
   afterAll(async () => {
     try {
       if (db) {
+        // Delete children before parents.
         for (const id of createdParcelIds) {
           await db.delete(parcels).where(eq(parcels.id, id));
+        }
+
+        for (const id of createdStopIds) {
+          await db.delete(stops).where(eq(stops.id, id));
+        }
+
+        for (const id of createdRouteIds) {
+          await db.delete(routes).where(eq(routes.id, id));
         }
 
         for (const id of createdDayIds) {
@@ -81,8 +92,37 @@ describe('Parcels API (e2e)', () => {
       .returning();
 
     createdDayIds.push(day.id);
-
     return day;
+  }
+
+  async function createRoute(dayId: string) {
+    const [route] = await db
+      .insert(routes)
+      .values({
+        deliveryDayId: dayId,
+      })
+      .returning();
+
+    createdRouteIds.push(route.id);
+    return route;
+  }
+
+  async function createStop(dayId: string) {
+    const route = await createRoute(dayId);
+
+    const [stop] = await db
+      .insert(stops)
+      .values({
+        deliveryDayId: dayId,
+        routeId: route.id,
+        sequence: 1,
+        locationKey: `stop-location-${randomUUID()}`,
+        position: sql`ST_SetSRID(ST_MakePoint(24.9384, 60.1699), 4326)`,
+      })
+      .returning();
+
+    createdStopIds.push(stop.id);
+    return stop;
   }
 
   function validParcel() {
@@ -94,6 +134,30 @@ describe('Parcels API (e2e)', () => {
       longitude: 24.9384,
     };
   }
+
+  async function createParcel(dayId: string) {
+    const response = await request(app.getHttpServer())
+      .post(`/api/v1/delivery-days/${dayId}/parcels`)
+      .send(validParcel())
+      .expect(201);
+
+    createdParcelIds.push(response.body.id);
+
+    return response.body as {
+      id: string;
+      deliveryDayId: string;
+      stopId: string | null;
+      status: string;
+    };
+  }
+
+  function assignmentUrl(dayId: string, parcelId: string) {
+    return `/api/v1/delivery-days/${dayId}/parcels/${parcelId}/stop`;
+  }
+
+  // --------------------------------------------------
+  // ALT-020: Parcel creation and listing
+  // --------------------------------------------------
 
   it('POST creates a pending, unassigned parcel', async () => {
     const day = await createDay();
@@ -332,6 +396,173 @@ describe('Parcels API (e2e)', () => {
       .post(`/api/v1/delivery-days/${day.id}/parcels`)
       .send({
         ...validParcel(),
+        status: 'delivered',
+      })
+      .expect(400);
+  });
+
+  // --------------------------------------------------
+  // ALT-021: Parcel-to-stop assignment
+  // --------------------------------------------------
+
+  it('PATCH assigns a parcel to a stop and returns the updated parcel', async () => {
+    const day = await createDay();
+    const parcel = await createParcel(day.id);
+    const stop = await createStop(day.id);
+
+    const response = await request(app.getHttpServer())
+      .patch(assignmentUrl(day.id, parcel.id))
+      .send({ stopId: stop.id })
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      id: parcel.id,
+      deliveryDayId: day.id,
+      stopId: stop.id,
+      status: 'pending',
+      failureReason: null,
+    });
+
+    const [saved] = await db
+      .select({ stopId: parcels.stopId })
+      .from(parcels)
+      .where(eq(parcels.id, parcel.id));
+
+    expect(saved.stopId).toBe(stop.id);
+  });
+
+  it('PATCH allows reassignment to another stop on the same day', async () => {
+    const day = await createDay();
+    const parcel = await createParcel(day.id);
+    const firstStop = await createStop(day.id);
+    const secondStop = await createStop(day.id);
+
+    await request(app.getHttpServer())
+      .patch(assignmentUrl(day.id, parcel.id))
+      .send({ stopId: firstStop.id })
+      .expect(200);
+
+    const response = await request(app.getHttpServer())
+      .patch(assignmentUrl(day.id, parcel.id))
+      .send({ stopId: secondStop.id })
+      .expect(200);
+
+    expect(response.body.stopId).toBe(secondStop.id);
+  });
+
+  it('PATCH allows multiple parcels to share one stop', async () => {
+    const day = await createDay();
+    const stop = await createStop(day.id);
+    const firstParcel = await createParcel(day.id);
+    const secondParcel = await createParcel(day.id);
+
+    for (const parcel of [firstParcel, secondParcel]) {
+      const response = await request(app.getHttpServer())
+        .patch(assignmentUrl(day.id, parcel.id))
+        .send({ stopId: stop.id })
+        .expect(200);
+
+      expect(response.body.stopId).toBe(stop.id);
+    }
+  });
+
+  it('PATCH returns 400 when the stop belongs to another day', async () => {
+    const dayA = await createDay();
+    const dayB = await createDay();
+
+    const parcel = await createParcel(dayA.id);
+    const stop = await createStop(dayB.id);
+
+    await request(app.getHttpServer())
+      .patch(assignmentUrl(dayA.id, parcel.id))
+      .send({ stopId: stop.id })
+      .expect(400);
+
+    const [saved] = await db
+      .select({ stopId: parcels.stopId })
+      .from(parcels)
+      .where(eq(parcels.id, parcel.id));
+
+    expect(saved.stopId).toBeNull();
+  });
+
+  it('PATCH returns 404 for an unknown delivery day', async () => {
+    await request(app.getHttpServer())
+      .patch(assignmentUrl(randomUUID(), randomUUID()))
+      .send({ stopId: randomUUID() })
+      .expect(404);
+  });
+
+  it('PATCH returns 404 for an unknown parcel', async () => {
+    const day = await createDay();
+    const stop = await createStop(day.id);
+
+    await request(app.getHttpServer())
+      .patch(assignmentUrl(day.id, randomUUID()))
+      .send({ stopId: stop.id })
+      .expect(404);
+  });
+
+  it('PATCH returns 404 when the parcel belongs to another day', async () => {
+    const dayA = await createDay();
+    const dayB = await createDay();
+
+    const parcel = await createParcel(dayB.id);
+    const stop = await createStop(dayA.id);
+
+    await request(app.getHttpServer())
+      .patch(assignmentUrl(dayA.id, parcel.id))
+      .send({ stopId: stop.id })
+      .expect(404);
+  });
+
+  it('PATCH returns 404 for an unknown stop', async () => {
+    const day = await createDay();
+    const parcel = await createParcel(day.id);
+
+    await request(app.getHttpServer())
+      .patch(assignmentUrl(day.id, parcel.id))
+      .send({ stopId: randomUUID() })
+      .expect(404);
+  });
+
+  it('PATCH rejects invalid delivery day and parcel UUIDs', async () => {
+    const day = await createDay();
+    const parcel = await createParcel(day.id);
+    const stop = await createStop(day.id);
+
+    await request(app.getHttpServer())
+      .patch(assignmentUrl('not-a-uuid', parcel.id))
+      .send({ stopId: stop.id })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .patch(assignmentUrl(day.id, 'not-a-uuid'))
+      .send({ stopId: stop.id })
+      .expect(400);
+  });
+
+  it('PATCH rejects missing, invalid, and null stop IDs', async () => {
+    const day = await createDay();
+    const parcel = await createParcel(day.id);
+
+    for (const body of [{}, { stopId: 'not-a-uuid' }, { stopId: null }]) {
+      await request(app.getHttpServer())
+        .patch(assignmentUrl(day.id, parcel.id))
+        .send(body)
+        .expect(400);
+    }
+  });
+
+  it('PATCH rejects unexpected request fields', async () => {
+    const day = await createDay();
+    const parcel = await createParcel(day.id);
+    const stop = await createStop(day.id);
+
+    await request(app.getHttpServer())
+      .patch(assignmentUrl(day.id, parcel.id))
+      .send({
+        stopId: stop.id,
         status: 'delivered',
       })
       .expect(400);

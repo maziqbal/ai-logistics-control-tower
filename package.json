@@ -8,7 +8,9 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "build": "pnpm -r --if-present build",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "check:api": "pnpm --filter api typecheck && pnpm --filter api lint && pnpm --filter api test --runInBand --ci && pnpm format:check",
+    "check:api:full": "pnpm check:api && pnpm --filter api test:e2e --runInBand"
   },
   "devDependencies": {
     "prettier": "^3.9.10"

@@ -11,6 +11,7 @@ vi.mock('./api/logistics-api', () => ({
     getRoutes: vi.fn(),
     getStops: vi.fn(),
     getParcels: vi.fn(),
+    createParcel: vi.fn(),
     assignParcelToStop: vi.fn(),
   },
 }));
@@ -55,10 +56,20 @@ const unassignedParcel = {
   destination: 'Helsinki City Centre',
 };
 
+const createdParcel = {
+  id: 'parcel-3',
+  deliveryDayId: day.id,
+  stopId: null,
+  trackingNumber: 'PKG-HEL-0003',
+  destination: 'Mannerheimintie 20, Helsinki',
+  locationKey: 'helsinki-location-003',
+};
+
 const getDeliveryDays = vi.mocked(logisticsApi.getDeliveryDays);
 const getRoutes = vi.mocked(logisticsApi.getRoutes);
 const getStops = vi.mocked(logisticsApi.getStops);
 const getParcels = vi.mocked(logisticsApi.getParcels);
+const createParcel = vi.mocked(logisticsApi.createParcel);
 const assignParcelToStop = vi.mocked(logisticsApi.assignParcelToStop);
 
 beforeEach(() => {
@@ -68,10 +79,85 @@ beforeEach(() => {
   getRoutes.mockResolvedValue([route]);
   getStops.mockResolvedValue([stop]);
   getParcels.mockResolvedValue([parcel]);
+  createParcel.mockResolvedValue(createdParcel);
   assignParcelToStop.mockResolvedValue(undefined);
 });
 
 describe('Dispatcher overview', () => {
+  it('refreshes parcel counts and assignment options after creating a parcel', async () => {
+    const user = userEvent.setup();
+
+    // Initially one assigned parcel exists.
+    // After creation, the API returns the newly created unassigned parcel too.
+    getParcels.mockResolvedValueOnce([parcel]).mockResolvedValue([parcel, createdParcel]);
+
+    render(<App />);
+
+    expect(await screen.findByText('ALT-DEMO-001')).toBeInTheDocument();
+    expect(screen.getByText('1 of 1 parcels assigned')).toBeInTheDocument();
+
+    // Fill in the parcel creation form.
+    await user.type(screen.getByLabelText('Tracking Number'), 'PKG-HEL-0003');
+    await user.type(screen.getByLabelText('Destination'), 'Mannerheimintie 20, Helsinki');
+    await user.type(screen.getByLabelText('Location Key'), 'helsinki-location-003');
+    await user.type(screen.getByLabelText('Longitude'), '24.9384');
+    await user.type(screen.getByLabelText('Latitude'), '60.1699');
+
+    await user.click(screen.getByRole('button', { name: 'Create Parcel' }));
+
+    // Verify the correct delivery day and POST request payload.
+    await waitFor(() => {
+      expect(createParcel).toHaveBeenCalledTimes(1);
+      expect(createParcel).toHaveBeenCalledWith(day.id, {
+        trackingNumber: 'PKG-HEL-0003',
+        destination: 'Mannerheimintie 20, Helsinki',
+        locationKey: 'helsinki-location-003',
+        longitude: 24.9384,
+        latitude: 60.1699,
+      });
+    });
+
+    // The dashboard must fetch the updated parcel list.
+    await waitFor(() => {
+      expect(getParcels).toHaveBeenCalledTimes(2);
+    });
+
+    // One assigned parcel + one newly created unassigned parcel.
+    expect(await screen.findByText('1 of 2 parcels assigned')).toBeInTheDocument();
+
+    const parcelCard = screen
+      .getAllByText('Parcels')
+      .find((element) => element.classList.contains('font-semibold'))?.parentElement?.parentElement;
+    expect(parcelCard).toBeTruthy();
+    expect(within(parcelCard!).getByText('2')).toBeInTheDocument();
+
+    const unassignedCard = screen.getByText('Unassigned Parcels').parentElement?.parentElement;
+    expect(unassignedCard).toBeTruthy();
+    expect(within(unassignedCard!).getByText('1')).toBeInTheDocument();
+
+    expect(screen.getByRole('progressbar', { name: 'Parcel assignment progress' })).toHaveAttribute(
+      'aria-valuenow',
+      '50',
+    );
+
+    // The new parcel must be selectable for assignment to a route stop.
+    const parcelSelect = screen.getByRole('combobox', {
+      name: 'Unassigned Parcel',
+    });
+
+    expect(
+      within(parcelSelect).getByRole('option', {
+        name: /PKG-HEL-0003/,
+      }),
+    ).toHaveValue(createdParcel.id);
+
+    // The creation panel must remain mounted during data refresh.
+    expect(screen.getByText('Parcel created successfully.')).toBeInTheDocument();
+
+    // Existing assigned parcel remains visible.
+    expect(screen.getByText('ALT-DEMO-001')).toBeInTheDocument();
+  });
+
   it('refreshes parcel counts after a successful assignment', async () => {
     const user = userEvent.setup();
 
@@ -83,7 +169,6 @@ describe('Dispatcher overview', () => {
 
     render(<App />);
 
-    // Wait for the dashboard and assignment panel to load.
     expect(await screen.findByText('ALT-DEMO-001')).toBeInTheDocument();
 
     const parcelSelect = await screen.findByRole('combobox', {
@@ -94,32 +179,27 @@ describe('Dispatcher overview', () => {
       name: 'Destination Stop',
     });
 
-    // Verify the initial state before assignment.
     expect(screen.getByText('1 of 2 parcels assigned')).toBeInTheDocument();
 
     const unassignedCard = screen.getByText('Unassigned Parcels').parentElement?.parentElement;
     expect(unassignedCard).toBeTruthy();
     expect(within(unassignedCard!).getByText('1')).toBeInTheDocument();
 
-    // Select an unassigned parcel and a stop on the selected route.
     await user.selectOptions(parcelSelect, unassignedParcel.id);
     await user.selectOptions(stopSelect, stop.id);
 
     await user.click(screen.getByRole('button', { name: 'Assign Parcel' }));
 
-    // Confirm the correct PATCH parameters.
     await waitFor(() => {
       expect(assignParcelToStop).toHaveBeenCalledTimes(1);
       expect(assignParcelToStop).toHaveBeenCalledWith(day.id, unassignedParcel.id, stop.id);
     });
 
-    // Confirm the dashboard fetched updated data.
     await waitFor(() => {
       expect(getParcels).toHaveBeenCalledTimes(2);
       expect(getStops).toHaveBeenCalledTimes(2);
     });
 
-    // KPI counts and assignment progress reflect the updated server response.
     expect(await screen.findByText('2 of 2 parcels assigned')).toBeInTheDocument();
 
     const assignedCard = screen.getByText('Assigned Parcels').parentElement?.parentElement;
@@ -131,7 +211,6 @@ describe('Dispatcher overview', () => {
       '100',
     );
 
-    // The newly assigned parcel appears in the route stop details.
     expect(await screen.findByText('ALT-DEMO-002')).toBeInTheDocument();
   });
 

@@ -17,8 +17,10 @@ import {
 
 import { Sidebar } from './components/layout/Sidebar';
 import { ParcelAssignmentPanel } from './components/dispatch/ParcelAssignmentPanel';
+import { ParcelCreationPanel } from './components/dispatch/ParcelCreationPanel';
 import {
   logisticsApi,
+  type CreateParcelInput,
   type DeliveryDay,
   type DeliveryRoute,
   type DeliveryStop,
@@ -240,6 +242,17 @@ function App() {
     setDaysRetry((value) => value + 1);
     setOperationsRetry((value) => value + 1);
     setStopsRetry((value) => value + 1);
+  }
+
+  async function handleCreateParcel(input: CreateParcelInput): Promise<void> {
+    if (!currentDayId || !operationsSuccess) {
+      throw new Error('Delivery data is not ready. Please try again.');
+    }
+
+    await logisticsApi.createParcel(currentDayId, input);
+
+    // Refresh server data so parcel counts and assignment options update.
+    setOperationsRetry((value) => value + 1);
   }
 
   async function handleAssignParcel(parcelId: string, stopId: string): Promise<void> {
@@ -514,6 +527,14 @@ function App() {
                       )}
                     </div>
                   </section>
+
+                  {currentDayId && (
+                    <ParcelCreationPanel
+                      key={currentDayId}
+                      disabled={!operationsSuccess}
+                      onCreate={handleCreateParcel}
+                    />
+                  )}
 
                   {currentDayId && currentRouteId && (
                     <ParcelAssignmentPanel

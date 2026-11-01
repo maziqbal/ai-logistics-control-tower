@@ -21,6 +21,9 @@ export type DeliveryStop = {
   deliveryDayId: string;
   sequence: number;
   locationKey: string;
+  status: 'pending' | 'completed' | 'skipped';
+  longitude: number;
+  latitude: number;
 };
 
 export type Parcel = {
@@ -68,7 +71,9 @@ export type UpdateRouteAssignmentInput = {
 };
 
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, { signal });
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    signal,
+  });
 
   if (!response.ok) {
     throw new Error(`Request failed (${response.status}): ${path}`);

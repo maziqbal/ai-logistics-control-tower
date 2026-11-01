@@ -70,7 +70,16 @@ export class StopsService {
     }
 
     return this.db
-      .select()
+      .select({
+        id: stops.id,
+        routeId: stops.routeId,
+        deliveryDayId: stops.deliveryDayId,
+        sequence: stops.sequence,
+        locationKey: stops.locationKey,
+        status: stops.status,
+        longitude: sql<number>`ST_X(${stops.position})`.mapWith(Number),
+        latitude: sql<number>`ST_Y(${stops.position})`.mapWith(Number),
+      })
       .from(stops)
       .where(eq(stops.routeId, routeId))
       .orderBy(asc(stops.sequence));
@@ -91,6 +100,7 @@ export class StopsService {
     };
 
     const code = databaseError.code ?? databaseError.cause?.code;
+
     const constraint =
       databaseError.constraint ?? databaseError.cause?.constraint;
 

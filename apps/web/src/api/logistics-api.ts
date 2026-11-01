@@ -77,7 +77,6 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   return (await response.json()) as T;
 }
 
-
 export const logisticsApi = {
   getDeliveryDays: (signal?: AbortSignal) =>
     getJson<DeliveryDay[]>('/api/v1/delivery-days', signal),
@@ -166,33 +165,33 @@ export const logisticsApi = {
   },
 
   updateRouteAssignment: async (
-  routeId: string,
-  input: UpdateRouteAssignmentInput,
-): Promise<DeliveryRoute> => {
-  const path = `/api/v1/routes/${encodeURIComponent(routeId)}/assignment`;
+    routeId: string,
+    input: UpdateRouteAssignmentInput,
+  ): Promise<DeliveryRoute> => {
+    const path = `/api/v1/routes/${encodeURIComponent(routeId)}/assignment`;
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(input),
-  });
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
 
-  if (!response.ok) {
-    if (response.status === 409) {
-      throw new Error(
-        'Assignment conflict. The route or resource may have changed. Refresh and try again.',
-      );
+    if (!response.ok) {
+      if (response.status === 409) {
+        throw new Error(
+          'Assignment conflict. The route or resource may have changed. Refresh and try again.',
+        );
+      }
+
+      if (response.status === 404) {
+        throw new Error('Route, driver, or vehicle not found. Refresh and try again.');
+      }
+
+      throw new Error(`Route assignment failed (${response.status})`);
     }
 
-    if (response.status === 404) {
-      throw new Error('Route, driver, or vehicle not found. Refresh and try again.');
-    }
-
-    throw new Error(`Route assignment failed (${response.status})`);
-  }
-
-  return (await response.json()) as DeliveryRoute;
-},
+    return (await response.json()) as DeliveryRoute;
+  },
 };

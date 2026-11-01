@@ -22,9 +22,10 @@ const stop = {
   routeId: 'route-001',
   deliveryDayId: 'day-001',
   sequence: 1,
-  locationKey: 'helsinki-central',
-  position: null,
+  locationKey: 'Helsinki Central Railway Station',
   status: 'pending',
+  longitude: 24.941,
+  latitude: 60.171,
 } as DeliveryStop;
 
 function renderPanel(overrides: Partial<React.ComponentProps<typeof ParcelAssignmentPanel>> = {}) {

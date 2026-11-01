@@ -5,6 +5,10 @@ import userEvent from '@testing-library/user-event';
 import App from './App';
 import { logisticsApi } from './api/logistics-api';
 
+vi.mock('./components/dispatch/RouteMap', () => ({
+  RouteMap: () => <div data-testid="route-map-mock">Mock route map</div>,
+}));
+
 vi.mock('./api/logistics-api', () => ({
   logisticsApi: {
     getDeliveryDays: vi.fn(),
@@ -42,6 +46,9 @@ const stop = {
   deliveryDayId: day.id,
   sequence: 1,
   locationKey: 'Helsinki Central Railway Station',
+  status: 'pending' as const,
+  longitude: 24.941,
+  latitude: 60.171,
 };
 
 const parcel = {
@@ -174,7 +181,6 @@ describe('Dispatcher overview', () => {
     ).toHaveValue(createdParcel.id);
 
     expect(screen.getByText('Parcel created successfully.')).toBeInTheDocument();
-
     expect(screen.getByText('ALT-DEMO-001')).toBeInTheDocument();
   });
 
@@ -205,7 +211,6 @@ describe('Dispatcher overview', () => {
     expect(within(unassignedCard!).getByText('1')).toBeInTheDocument();
 
     await user.selectOptions(parcelSelect, unassignedParcel.id);
-
     await user.selectOptions(stopSelect, stop.id);
 
     await user.click(screen.getByRole('button', { name: 'Assign Parcel' }));
@@ -248,7 +253,6 @@ describe('Dispatcher overview', () => {
     ).toHaveValue(day.id);
 
     expect(screen.getByText('Route 1')).toBeInTheDocument();
-
     expect(screen.getByText('Assigned Parcels')).toBeInTheDocument();
 
     expect(getRoutes).toHaveBeenCalledWith(day.id, expect.any(AbortSignal));
@@ -256,6 +260,8 @@ describe('Dispatcher overview', () => {
     expect(getParcels).toHaveBeenCalledWith(day.id, expect.any(AbortSignal));
 
     expect(getStops).toHaveBeenCalledWith(route.id, expect.any(AbortSignal));
+
+    expect(screen.getByTestId('route-map-mock')).toBeInTheDocument();
   });
 
   it('shows an empty state when there are no routes', async () => {
@@ -266,7 +272,8 @@ describe('Dispatcher overview', () => {
 
     expect(await screen.findByText('No routes for this delivery day.')).toBeInTheDocument();
 
-    expect(screen.getByText('No route selected.')).toBeInTheDocument();
+    expect(screen.getAllByText('No route selected.')).toHaveLength(2);
+    expect(screen.queryByTestId('route-map-mock')).not.toBeInTheDocument();
   });
 
   it('shows an error and retries when delivery days fail to load', async () => {
@@ -318,5 +325,7 @@ describe('Dispatcher overview', () => {
     expect(screen.queryByText('ALT-DEMO-001')).not.toBeInTheDocument();
 
     expect(await screen.findByText('No routes for this delivery day.')).toBeInTheDocument();
+
+    expect(screen.queryByTestId('route-map-mock')).not.toBeInTheDocument();
   });
 });

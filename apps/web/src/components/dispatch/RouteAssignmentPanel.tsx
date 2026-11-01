@@ -14,9 +14,7 @@ type Props = {
 };
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : 'An unexpected error occurred.';
+  return error instanceof Error ? error.message : 'An unexpected error occurred.';
 }
 
 export function RouteAssignmentPanel({ route, onAssigned }: Props) {
@@ -66,13 +64,9 @@ export function RouteAssignmentPanel({ route, onAssigned }: Props) {
 
   const isDraft = route.status === 'draft';
 
-  const hasChanges =
-    driverId !== (route.driverId ?? '') ||
-    vehicleId !== (route.vehicleId ?? '');
+  const hasChanges = driverId !== (route.driverId ?? '') || vehicleId !== (route.vehicleId ?? '');
 
-  const driverOptions = drivers.filter(
-    (driver) => driver.active || driver.id === route.driverId,
-  );
+  const driverOptions = drivers.filter((driver) => driver.active || driver.id === route.driverId);
 
   const vehicleOptions = vehicles.filter(
     (vehicle) => vehicle.active || vehicle.id === route.vehicleId,
@@ -110,9 +104,7 @@ export function RouteAssignmentPanel({ route, onAssigned }: Props) {
         <div className="flex items-center gap-2">
           <Truck size={18} className="text-teal-700" />
 
-          <h3 className="font-bold text-[#14243b]">
-            Route Assignment
-          </h3>
+          <h3 className="font-bold text-[#14243b]">Route Assignment</h3>
         </div>
 
         <p className="mt-1 text-xs text-slate-500">
@@ -122,10 +114,7 @@ export function RouteAssignmentPanel({ route, onAssigned }: Props) {
 
       <form onSubmit={handleSubmit} className="space-y-4 p-5">
         {!isDraft && (
-          <p
-            role="status"
-            className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800"
-          >
+          <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
             Assignments can only be changed on draft routes.
           </p>
         )}
@@ -218,20 +207,14 @@ export function RouteAssignmentPanel({ route, onAssigned }: Props) {
         </div>
 
         {saveError && (
-          <p
-            role="alert"
-            className="flex items-center gap-2 text-sm text-red-700"
-          >
+          <p role="alert" className="flex items-center gap-2 text-sm text-red-700">
             <AlertCircle size={16} />
             {saveError}
           </p>
         )}
 
         {success && (
-          <p
-            role="status"
-            className="flex items-center gap-2 text-sm text-teal-700"
-          >
+          <p role="status" className="flex items-center gap-2 text-sm text-teal-700">
             <CheckCircle2 size={16} />
             {success}
           </p>
@@ -239,13 +222,7 @@ export function RouteAssignmentPanel({ route, onAssigned }: Props) {
 
         <button
           type="submit"
-          disabled={
-            !isDraft ||
-            loading ||
-            !!loadError ||
-            saving ||
-            !hasChanges
-          }
+          disabled={!isDraft || loading || !!loadError || saving || !hasChanges}
           className="w-full rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? 'Saving assignment...' : 'Save Assignment'}

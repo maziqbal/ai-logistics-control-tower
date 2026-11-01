@@ -54,4 +54,20 @@ export const logisticsApi = {
 
   getParcels: (dayId: string, signal?: AbortSignal) =>
     getJson<Parcel[]>(`/api/v1/delivery-days/${encodeURIComponent(dayId)}/parcels`, signal),
+
+  assignParcelToStop: async (dayId: string, parcelId: string, stopId: string): Promise<void> => {
+    const path = `/api/v1/delivery-days/${encodeURIComponent(dayId)}/parcels/${encodeURIComponent(parcelId)}/stop`;
+
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ stopId }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Parcel assignment failed (${response.status})`);
+    }
+  },
 };

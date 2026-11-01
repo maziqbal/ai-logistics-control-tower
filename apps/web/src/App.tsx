@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { Sidebar } from './components/layout/Sidebar';
+import { ParcelAssignmentPanel } from './components/dispatch/ParcelAssignmentPanel';
 import {
   logisticsApi,
   type DeliveryDay,
@@ -59,6 +60,7 @@ function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => voi
         <AlertCircle size={18} className="shrink-0" />
         <span>{message}</span>
       </div>
+
       <button
         type="button"
         onClick={onRetry}
@@ -225,6 +227,10 @@ function App() {
     },
   ];
 
+  const selectedRouteIndex = routes.findIndex((route) => route.id === currentRouteId);
+  const selectedRouteLabel =
+    selectedRouteIndex >= 0 ? `Route ${selectedRouteIndex + 1}` : 'the selected route';
+
   function handleNavigate(page: string) {
     setActivePage(page);
     setSidebarOpen(false);
@@ -232,6 +238,34 @@ function App() {
 
   function refreshDashboard() {
     setDaysRetry((value) => value + 1);
+    setOperationsRetry((value) => value + 1);
+    setStopsRetry((value) => value + 1);
+  }
+
+  async function handleAssignParcel(parcelId: string, stopId: string): Promise<void> {
+    if (!currentDayId || !currentRouteId || !operationsSuccess || !stopsSuccess) {
+      throw new Error('Delivery data is not ready. Please try again.');
+    }
+
+    const parcelIsUnassigned = parcels.some(
+      (parcel) => parcel.id === parcelId && parcel.stopId === null,
+    );
+
+    const stopBelongsToSelectedRoute = stops.some(
+      (stop) => stop.id === stopId && stop.routeId === currentRouteId,
+    );
+
+    if (!parcelIsUnassigned) {
+      throw new Error('Please select a valid unassigned parcel.');
+    }
+
+    if (!stopBelongsToSelectedRoute) {
+      throw new Error('Please select a stop from the current route.');
+    }
+
+    await logisticsApi.assignParcelToStop(currentDayId, parcelId, stopId);
+
+    // Reload server data so KPI counts and stop details reflect the assignment.
     setOperationsRetry((value) => value + 1);
     setStopsRetry((value) => value + 1);
   }
@@ -254,6 +288,7 @@ function App() {
             onClick={() => setSidebarOpen(false)}
             aria-label="Close navigation overlay"
           />
+
           <div className="relative h-full">
             <Sidebar
               activePage={activePage}
@@ -308,6 +343,7 @@ function App() {
                       size={16}
                       className="pointer-events-none absolute top-2.5 left-3 text-slate-400"
                     />
+
                     <select
                       aria-label="Select delivery day"
                       value={currentDayId}
@@ -325,12 +361,14 @@ function App() {
                           {!daysReady ? 'Loading delivery days...' : 'No delivery days'}
                         </option>
                       )}
+
                       {days.map((day) => (
                         <option key={day.id} value={day.id}>
                           {formatDate(day.serviceDate)} · {day.operatingArea}
                         </option>
                       ))}
                     </select>
+
                     <ChevronDown
                       size={15}
                       className="pointer-events-none absolute top-2.5 right-3 text-slate-400"
@@ -375,6 +413,7 @@ function App() {
                       <span className="text-xs font-semibold text-slate-500">{label}</span>
                       <Icon size={17} className="text-teal-700" />
                     </div>
+
                     <p className="mt-3 text-3xl font-bold text-[#14243b]">
                       {operationsSuccess ? value : '—'}
                     </p>
@@ -414,63 +453,93 @@ function App() {
               </div>
 
               <div className="mt-5 grid items-start gap-4 xl:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.7fr)]">
-                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <div className="border-b border-slate-100 px-5 py-4">
-                    <h3 className="font-bold text-[#14243b]">Delivery Routes</h3>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {operationsSuccess
-                        ? `${routes.length} routes for selected day`
-                        : 'Route overview'}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2 p-3">
-                    {!daysReady || (currentDayId && !operationsReady) ? (
-                      <p role="status" className="p-4 text-sm text-slate-500">
-                        Loading routes...
+                <div className="space-y-4">
+                  <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div className="border-b border-slate-100 px-5 py-4">
+                      <h3 className="font-bold text-[#14243b]">Delivery Routes</h3>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {operationsSuccess
+                          ? `${routes.length} routes for selected day`
+                          : 'Route overview'}
                       </p>
-                    ) : !currentDayId ? (
-                      <p className="p-4 text-sm text-slate-500">No delivery days available.</p>
-                    ) : !operationsSuccess ? (
-                      <p className="p-4 text-sm text-slate-500">Routes could not be loaded.</p>
-                    ) : routes.length === 0 ? (
-                      <p className="p-4 text-sm text-slate-500">No routes for this delivery day.</p>
-                    ) : (
-                      routes.map((route, index) => (
-                        <button
-                          key={route.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedRouteId(route.id);
-                            setStopsRetry(0);
-                          }}
-                          aria-pressed={currentRouteId === route.id}
-                          className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                            currentRouteId === route.id
-                              ? 'border-teal-400 bg-teal-50/70'
-                              : 'border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="flex items-center gap-2 text-sm font-bold text-[#14243b]">
-                              <Truck size={16} className="text-teal-700" />
-                              Route {index + 1}
-                            </span>
-                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600 capitalize">
-                              {route.status}
-                            </span>
-                          </div>
+                    </div>
 
-                          <p className="mt-2 text-xs text-slate-500">
-                            Driver: {route.driverId ? 'Assigned' : 'Unassigned'}
-                            {' · '}
-                            Vehicle: {route.vehicleId ? 'Assigned' : 'Unassigned'}
-                          </p>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </section>
+                    <div className="space-y-2 p-3">
+                      {!daysReady || (currentDayId && !operationsReady) ? (
+                        <p role="status" className="p-4 text-sm text-slate-500">
+                          Loading routes...
+                        </p>
+                      ) : !currentDayId ? (
+                        <p className="p-4 text-sm text-slate-500">No delivery days available.</p>
+                      ) : !operationsSuccess ? (
+                        <p className="p-4 text-sm text-slate-500">Routes could not be loaded.</p>
+                      ) : routes.length === 0 ? (
+                        <p className="p-4 text-sm text-slate-500">
+                          No routes for this delivery day.
+                        </p>
+                      ) : (
+                        routes.map((route, index) => (
+                          <button
+                            key={route.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedRouteId(route.id);
+                              setStopsRetry(0);
+                            }}
+                            aria-pressed={currentRouteId === route.id}
+                            className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                              currentRouteId === route.id
+                                ? 'border-teal-400 bg-teal-50/70'
+                                : 'border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="flex items-center gap-2 text-sm font-bold text-[#14243b]">
+                                <Truck size={16} className="text-teal-700" />
+                                Route {index + 1}
+                              </span>
+
+                              <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600 capitalize">
+                                {route.status}
+                              </span>
+                            </div>
+
+                            <p className="mt-2 text-xs text-slate-500">
+                              Driver: {route.driverId ? 'Assigned' : 'Unassigned'}
+                              {' · '}
+                              Vehicle: {route.vehicleId ? 'Assigned' : 'Unassigned'}
+                            </p>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </section>
+
+                  {currentDayId && currentRouteId && (
+                    <ParcelAssignmentPanel
+                      key={`${currentDayId}:${currentRouteId}`}
+                      parcels={
+                        operationsSuccess
+                          ? parcels
+                          : operationsRequest?.key.startsWith(`${currentDayId}:`) &&
+                              operationsRequest.status === 'success'
+                            ? operationsRequest.data.parcels
+                            : []
+                      }
+                      stops={
+                        stopsSuccess
+                          ? stops
+                          : stopsRequest?.key.startsWith(`${currentDayId}:${currentRouteId}:`) &&
+                              stopsRequest.status === 'success'
+                            ? stopsRequest.data
+                            : []
+                      }
+                      routeLabel={selectedRouteLabel}
+                      disabled={!operationsSuccess || !stopsSuccess}
+                      onAssign={handleAssignParcel}
+                    />
+                  )}
+                </div>
 
                 <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                   <div className="border-b border-slate-100 px-5 py-4">
@@ -512,6 +581,7 @@ function App() {
                               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50 text-sm font-bold text-teal-700">
                                 {stop.sequence}
                               </div>
+
                               <div className="min-w-0 flex-1">
                                 <p className="text-sm font-bold text-[#14243b]">
                                   {stop.locationKey}
@@ -520,6 +590,7 @@ function App() {
                                   {stopParcels.length} parcels
                                 </p>
                               </div>
+
                               <MapPin size={16} className="shrink-0 text-slate-400" />
                             </div>
 
@@ -531,6 +602,7 @@ function App() {
                                     className="flex items-start gap-2 rounded-lg bg-slate-50 p-3"
                                   >
                                     <Package size={15} className="mt-0.5 shrink-0 text-teal-700" />
+
                                     <div>
                                       <p className="text-xs font-bold text-[#14243b]">
                                         {parcel.trackingNumber}
@@ -553,7 +625,7 @@ function App() {
 
               <div className="mt-5 flex items-center gap-2 text-xs text-slate-400">
                 <ClipboardList size={14} />
-                Read-only operations overview · Data from Logistics API
+                Dispatcher operations · Data from Logistics API
                 {selectedDay && (
                   <span className="ml-auto hidden sm:inline">
                     {selectedDay.operatingArea} · {formatDate(selectedDay.serviceDate)}
@@ -566,6 +638,7 @@ function App() {
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
                 <Boxes size={23} />
               </div>
+
               <h2 className="text-xl font-bold text-[#14243b]">{activePage}</h2>
               <p className="mt-3 text-sm text-slate-500">
                 This workspace will be implemented in a future ticket.

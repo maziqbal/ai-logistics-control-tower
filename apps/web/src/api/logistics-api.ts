@@ -32,6 +32,14 @@ export type Parcel = {
   locationKey: string;
 };
 
+export type CreateParcelInput = {
+  trackingNumber: string;
+  destination: string;
+  locationKey: string;
+  longitude: number;
+  latitude: number;
+};
+
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, { signal });
 
@@ -54,6 +62,24 @@ export const logisticsApi = {
 
   getParcels: (dayId: string, signal?: AbortSignal) =>
     getJson<Parcel[]>(`/api/v1/delivery-days/${encodeURIComponent(dayId)}/parcels`, signal),
+
+  createParcel: async (dayId: string, input: CreateParcelInput): Promise<Parcel> => {
+    const path = `/api/v1/delivery-days/${encodeURIComponent(dayId)}/parcels`;
+
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Parcel creation failed (${response.status})`);
+    }
+
+    return (await response.json()) as Parcel;
+  },
 
   assignParcelToStop: async (dayId: string, parcelId: string, stopId: string): Promise<void> => {
     const path = `/api/v1/delivery-days/${encodeURIComponent(dayId)}/parcels/${encodeURIComponent(parcelId)}/stop`;

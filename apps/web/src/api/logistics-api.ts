@@ -62,6 +62,11 @@ export type CreateVehicleInput = {
   active: boolean;
 };
 
+export type UpdateRouteAssignmentInput = {
+  driverId?: string | null;
+  vehicleId?: string | null;
+};
+
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, { signal });
 
@@ -71,6 +76,7 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
 
   return (await response.json()) as T;
 }
+
 
 export const logisticsApi = {
   getDeliveryDays: (signal?: AbortSignal) =>
@@ -158,4 +164,35 @@ export const logisticsApi = {
       throw new Error(`Parcel assignment failed (${response.status})`);
     }
   },
+
+  updateRouteAssignment: async (
+  routeId: string,
+  input: UpdateRouteAssignmentInput,
+): Promise<DeliveryRoute> => {
+  const path = `/api/v1/routes/${encodeURIComponent(routeId)}/assignment`;
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    if (response.status === 409) {
+      throw new Error(
+        'Assignment conflict. The route or resource may have changed. Refresh and try again.',
+      );
+    }
+
+    if (response.status === 404) {
+      throw new Error('Route, driver, or vehicle not found. Refresh and try again.');
+    }
+
+    throw new Error(`Route assignment failed (${response.status})`);
+  }
+
+  return (await response.json()) as DeliveryRoute;
+},
 };

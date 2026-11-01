@@ -17,6 +17,7 @@ vi.mock('./api/logistics-api', () => ({
     getVehicles: vi.fn(),
     createDriver: vi.fn(),
     createVehicle: vi.fn(),
+    updateRouteAssignment: vi.fn(),
   },
 }));
 
@@ -75,6 +76,8 @@ const getStops = vi.mocked(logisticsApi.getStops);
 const getParcels = vi.mocked(logisticsApi.getParcels);
 const createParcel = vi.mocked(logisticsApi.createParcel);
 const assignParcelToStop = vi.mocked(logisticsApi.assignParcelToStop);
+const getDrivers = vi.mocked(logisticsApi.getDrivers);
+const getVehicles = vi.mocked(logisticsApi.getVehicles);
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -83,16 +86,33 @@ beforeEach(() => {
   getRoutes.mockResolvedValue([route]);
   getStops.mockResolvedValue([stop]);
   getParcels.mockResolvedValue([parcel]);
+
   createParcel.mockResolvedValue(createdParcel);
   assignParcelToStop.mockResolvedValue(undefined);
+
+  getDrivers.mockResolvedValue([
+    { id: 'driver-1', name: 'Driver One', active: true },
+    { id: 'driver-2', name: 'Driver Two', active: true },
+  ]);
+
+  getVehicles.mockResolvedValue([
+    {
+      id: 'vehicle-1',
+      registrationNumber: 'ALT-001',
+      active: true,
+    },
+    {
+      id: 'vehicle-2',
+      registrationNumber: 'ALT-002',
+      active: true,
+    },
+  ]);
 });
 
 describe('Dispatcher overview', () => {
   it('refreshes parcel counts and assignment options after creating a parcel', async () => {
     const user = userEvent.setup();
 
-    // Initially one assigned parcel exists.
-    // After creation, the API returns the newly created unassigned parcel too.
     getParcels.mockResolvedValueOnce([parcel]).mockResolvedValue([parcel, createdParcel]);
 
     render(<App />);
@@ -100,7 +120,6 @@ describe('Dispatcher overview', () => {
     expect(await screen.findByText('ALT-DEMO-001')).toBeInTheDocument();
     expect(screen.getByText('1 of 1 parcels assigned')).toBeInTheDocument();
 
-    // Fill in the parcel creation form.
     await user.type(screen.getByLabelText('Tracking Number'), 'PKG-HEL-0003');
     await user.type(screen.getByLabelText('Destination'), 'Mannerheimintie 20, Helsinki');
     await user.type(screen.getByLabelText('Location Key'), 'helsinki-location-003');
@@ -109,7 +128,6 @@ describe('Dispatcher overview', () => {
 
     await user.click(screen.getByRole('button', { name: 'Create Parcel' }));
 
-    // Verify the correct delivery day and POST request payload.
     await waitFor(() => {
       expect(createParcel).toHaveBeenCalledTimes(1);
       expect(createParcel).toHaveBeenCalledWith(day.id, {
@@ -121,30 +139,30 @@ describe('Dispatcher overview', () => {
       });
     });
 
-    // The dashboard must fetch the updated parcel list.
     await waitFor(() => {
       expect(getParcels).toHaveBeenCalledTimes(2);
     });
 
-    // One assigned parcel + one newly created unassigned parcel.
     expect(await screen.findByText('1 of 2 parcels assigned')).toBeInTheDocument();
 
     const parcelCard = screen
       .getAllByText('Parcels')
       .find((element) => element.classList.contains('font-semibold'))?.parentElement?.parentElement;
+
     expect(parcelCard).toBeTruthy();
     expect(within(parcelCard!).getByText('2')).toBeInTheDocument();
 
     const unassignedCard = screen.getByText('Unassigned Parcels').parentElement?.parentElement;
+
     expect(unassignedCard).toBeTruthy();
     expect(within(unassignedCard!).getByText('1')).toBeInTheDocument();
 
-    expect(screen.getByRole('progressbar', { name: 'Parcel assignment progress' })).toHaveAttribute(
-      'aria-valuenow',
-      '50',
-    );
+    expect(
+      screen.getByRole('progressbar', {
+        name: 'Parcel assignment progress',
+      }),
+    ).toHaveAttribute('aria-valuenow', '50');
 
-    // The new parcel must be selectable for assignment to a route stop.
     const parcelSelect = screen.getByRole('combobox', {
       name: 'Unassigned Parcel',
     });
@@ -155,18 +173,14 @@ describe('Dispatcher overview', () => {
       }),
     ).toHaveValue(createdParcel.id);
 
-    // The creation panel must remain mounted during data refresh.
     expect(screen.getByText('Parcel created successfully.')).toBeInTheDocument();
 
-    // Existing assigned parcel remains visible.
     expect(screen.getByText('ALT-DEMO-001')).toBeInTheDocument();
   });
 
   it('refreshes parcel counts after a successful assignment', async () => {
     const user = userEvent.setup();
 
-    // First GET returns an unassigned parcel.
-    // Subsequent GET requests return the parcel assigned to the stop.
     getParcels
       .mockResolvedValueOnce([parcel, unassignedParcel])
       .mockResolvedValue([parcel, { ...unassignedParcel, stopId: stop.id }]);
@@ -186,10 +200,12 @@ describe('Dispatcher overview', () => {
     expect(screen.getByText('1 of 2 parcels assigned')).toBeInTheDocument();
 
     const unassignedCard = screen.getByText('Unassigned Parcels').parentElement?.parentElement;
+
     expect(unassignedCard).toBeTruthy();
     expect(within(unassignedCard!).getByText('1')).toBeInTheDocument();
 
     await user.selectOptions(parcelSelect, unassignedParcel.id);
+
     await user.selectOptions(stopSelect, stop.id);
 
     await user.click(screen.getByRole('button', { name: 'Assign Parcel' }));
@@ -207,13 +223,15 @@ describe('Dispatcher overview', () => {
     expect(await screen.findByText('2 of 2 parcels assigned')).toBeInTheDocument();
 
     const assignedCard = screen.getByText('Assigned Parcels').parentElement?.parentElement;
+
     expect(assignedCard).toBeTruthy();
     expect(within(assignedCard!).getByText('2')).toBeInTheDocument();
 
-    expect(screen.getByRole('progressbar', { name: 'Parcel assignment progress' })).toHaveAttribute(
-      'aria-valuenow',
-      '100',
-    );
+    expect(
+      screen.getByRole('progressbar', {
+        name: 'Parcel assignment progress',
+      }),
+    ).toHaveAttribute('aria-valuenow', '100');
 
     expect(await screen.findByText('ALT-DEMO-002')).toBeInTheDocument();
   });
@@ -222,13 +240,21 @@ describe('Dispatcher overview', () => {
     render(<App />);
 
     expect(await screen.findByText('ALT-DEMO-001', {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Select delivery day' })).toHaveValue(day.id);
+
+    expect(
+      screen.getByRole('combobox', {
+        name: 'Select delivery day',
+      }),
+    ).toHaveValue(day.id);
 
     expect(screen.getByText('Route 1')).toBeInTheDocument();
+
     expect(screen.getByText('Assigned Parcels')).toBeInTheDocument();
 
     expect(getRoutes).toHaveBeenCalledWith(day.id, expect.any(AbortSignal));
+
     expect(getParcels).toHaveBeenCalledWith(day.id, expect.any(AbortSignal));
+
     expect(getStops).toHaveBeenCalledWith(route.id, expect.any(AbortSignal));
   });
 
@@ -271,16 +297,23 @@ describe('Dispatcher overview', () => {
     };
 
     getDeliveryDays.mockResolvedValue([day, secondDay]);
+
     getRoutes.mockImplementation(async (dayId) => (dayId === day.id ? [route] : []));
+
     getParcels.mockImplementation(async (dayId) => (dayId === day.id ? [parcel] : []));
 
     render(<App />);
 
     expect(await screen.findByText('ALT-DEMO-001')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Select delivery day' }), {
-      target: { value: secondDay.id },
-    });
+    fireEvent.change(
+      screen.getByRole('combobox', {
+        name: 'Select delivery day',
+      }),
+      {
+        target: { value: secondDay.id },
+      },
+    );
 
     expect(screen.queryByText('ALT-DEMO-001')).not.toBeInTheDocument();
 

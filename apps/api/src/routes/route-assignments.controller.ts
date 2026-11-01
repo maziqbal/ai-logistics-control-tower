@@ -18,19 +18,20 @@ export class RouteAssignmentsController {
 
   @Patch(':routeId/assignment')
   @ApiOperation({
-    summary: 'Update driver and vehicle assignments on a draft route',
+    summary: 'Assign or change a driver and vehicle on a draft route',
   })
   @ApiOkResponse({
     description: 'Route assignment updated successfully',
   })
   @ApiBadRequestResponse({
-    description: 'Invalid UUID or assignment request',
+    description: 'Invalid UUID, request body, or empty assignment',
   })
   @ApiNotFoundResponse({
     description: 'Route, driver, or vehicle not found',
   })
   @ApiConflictResponse({
-    description: 'Assignment conflict or route cannot be modified',
+    description:
+      'Route is not draft, resource is inactive, assignment conflicts, or route was modified concurrently',
   })
   updateAssignment(
     @Param('routeId', new ParseUUIDPipe()) routeId: string,

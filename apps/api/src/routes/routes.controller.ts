@@ -6,7 +6,6 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
-  Patch,
   Post,
 } from '@nestjs/common';
 import {
@@ -18,7 +17,6 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { UpdateRouteAssignmentDto } from './dto/update-route-assignment.dto';
 
 import { CreateRouteDto } from './dto/create-route.dto';
 import { RoutesService } from './routes.service';
@@ -39,9 +37,15 @@ export class RoutesController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a draft route for a delivery day' })
-  @ApiCreatedResponse({ description: 'Draft route created successfully' })
-  @ApiBadRequestResponse({ description: 'Invalid request or UUID' })
+  @ApiOperation({
+    summary: 'Create a draft route for a delivery day',
+  })
+  @ApiCreatedResponse({
+    description: 'Draft route created successfully',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request or UUID',
+  })
   @ApiNotFoundResponse({
     description: 'Delivery day, driver, or vehicle not found',
   })
@@ -53,29 +57,5 @@ export class RoutesController {
     @Body() dto: CreateRouteDto,
   ) {
     return this.routesService.create(dayId, dto);
-  }
-
-  @Patch('/api/v1/routes/:routeId/assignment')
-  @ApiOperation({
-    summary: 'Assign or change a driver and vehicle on a draft route',
-  })
-  @ApiOkResponse({
-    description: 'Route assignment updated successfully',
-  })
-  @ApiBadRequestResponse({
-    description: 'Invalid UUID, request body, or empty assignment',
-  })
-  @ApiNotFoundResponse({
-    description: 'Route, driver, or vehicle not found',
-  })
-  @ApiConflictResponse({
-    description:
-      'Route is not draft, resource is inactive, assignment conflicts, or route was modified concurrently',
-  })
-  updateAssignment(
-    @Param('routeId', new ParseUUIDPipe()) routeId: string,
-    @Body() dto: UpdateRouteAssignmentDto,
-  ) {
-    return this.routesService.updateAssignment(routeId, dto);
   }
 }

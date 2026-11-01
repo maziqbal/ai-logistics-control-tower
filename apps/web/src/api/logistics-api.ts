@@ -47,20 +47,11 @@ export const logisticsApi = {
     getJson<DeliveryDay[]>('/api/v1/delivery-days', signal),
 
   getRoutes: (dayId: string, signal?: AbortSignal) =>
-    getJson<DeliveryRoute[]>(
-      `/api/v1/delivery-days/${encodeURIComponent(dayId)}/routes`,
-      signal,
-    ),
+    getJson<DeliveryRoute[]>(`/api/v1/delivery-days/${encodeURIComponent(dayId)}/routes`, signal),
 
   getStops: (routeId: string, signal?: AbortSignal) =>
-    getJson<DeliveryStop[]>(
-      `/api/v1/routes/${encodeURIComponent(routeId)}/stops`,
-      signal,
-    ),
+    getJson<DeliveryStop[]>(`/api/v1/routes/${encodeURIComponent(routeId)}/stops`, signal),
 
   getParcels: (dayId: string, signal?: AbortSignal) =>
-    getJson<Parcel[]>(
-      `/api/v1/delivery-days/${encodeURIComponent(dayId)}/parcels`,
-      signal,
-    ),
+    getJson<Parcel[]>(`/api/v1/delivery-days/${encodeURIComponent(dayId)}/parcels`, signal),
 };

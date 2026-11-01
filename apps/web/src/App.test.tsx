@@ -64,8 +64,7 @@ describe('Dispatcher overview', () => {
     render(<App />);
 
     expect(await screen.findByText('ALT-DEMO-001')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Select delivery day' }))
-      .toHaveValue(day.id);
+    expect(screen.getByRole('combobox', { name: 'Select delivery day' })).toHaveValue(day.id);
 
     expect(screen.getByText('Route 1')).toBeInTheDocument();
     expect(screen.getByText('Assigned Parcels')).toBeInTheDocument();
@@ -81,9 +80,7 @@ describe('Dispatcher overview', () => {
 
     render(<App />);
 
-    expect(
-      await screen.findByText('No routes for this delivery day.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('No routes for this delivery day.')).toBeInTheDocument();
 
     expect(screen.getByText('No route selected.')).toBeInTheDocument();
   });
@@ -116,26 +113,19 @@ describe('Dispatcher overview', () => {
     };
 
     getDeliveryDays.mockResolvedValue([day, secondDay]);
-    getRoutes.mockImplementation(async (dayId) =>
-      dayId === day.id ? [route] : [],
-    );
-    getParcels.mockImplementation(async (dayId) =>
-      dayId === day.id ? [parcel] : [],
-    );
+    getRoutes.mockImplementation(async (dayId) => (dayId === day.id ? [route] : []));
+    getParcels.mockImplementation(async (dayId) => (dayId === day.id ? [parcel] : []));
 
     render(<App />);
 
     expect(await screen.findByText('ALT-DEMO-001')).toBeInTheDocument();
 
-    fireEvent.change(
-      screen.getByRole('combobox', { name: 'Select delivery day' }),
-      { target: { value: secondDay.id } },
-    );
+    fireEvent.change(screen.getByRole('combobox', { name: 'Select delivery day' }), {
+      target: { value: secondDay.id },
+    });
 
     expect(screen.queryByText('ALT-DEMO-001')).not.toBeInTheDocument();
 
-    expect(
-      await screen.findByText('No routes for this delivery day.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('No routes for this delivery day.')).toBeInTheDocument();
   });
 });

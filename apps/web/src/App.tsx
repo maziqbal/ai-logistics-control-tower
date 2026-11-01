@@ -73,12 +73,8 @@ function Sidebar({ activePage, onNavigate, onClose }: SidebarProps) {
           <Boxes size={23} />
         </div>
         <div>
-          <div className="text-sm font-bold tracking-wide text-white">
-            CONTROL TOWER
-          </div>
-          <div className="text-[11px] text-slate-400">
-            Logistics Intelligence
-          </div>
+          <div className="text-sm font-bold tracking-wide text-white">CONTROL TOWER</div>
+          <div className="text-[11px] text-slate-400">Logistics Intelligence</div>
         </div>
         <button
           type="button"
@@ -127,9 +123,7 @@ function Sidebar({ activePage, onNavigate, onClose }: SidebarProps) {
           </div>
           <div>
             <div className="text-xs font-semibold text-white">Dispatcher</div>
-            <div className="text-[11px] text-slate-400">
-              Operations workspace
-            </div>
+            <div className="text-[11px] text-slate-400">Operations workspace</div>
           </div>
         </div>
       </div>
@@ -137,13 +131,7 @@ function Sidebar({ activePage, onNavigate, onClose }: SidebarProps) {
   );
 }
 
-function ErrorNotice({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
+function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div
       role="alert"
@@ -173,13 +161,13 @@ function App() {
   const [daysRetry, setDaysRetry] = useState(0);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
 
-  const [operationsRequest, setOperationsRequest] =
-    useState<RequestState<OperationsData> | null>(null);
+  const [operationsRequest, setOperationsRequest] = useState<RequestState<OperationsData> | null>(
+    null,
+  );
   const [operationsRetry, setOperationsRetry] = useState(0);
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
-  const [stopsRequest, setStopsRequest] =
-    useState<RequestState<DeliveryStop[]> | null>(null);
+  const [stopsRequest, setStopsRequest] = useState<RequestState<DeliveryStop[]> | null>(null);
   const [stopsRetry, setStopsRetry] = useState(0);
 
   useEffect(() => {
@@ -212,12 +200,9 @@ function App() {
   }, [daysRetry]);
 
   const daysReady = daysRequest?.key === String(daysRetry);
-  const days = daysReady && daysRequest?.status === 'success'
-    ? daysRequest.data
-    : [];
+  const days = daysReady && daysRequest?.status === 'success' ? daysRequest.data : [];
 
-  const currentDayId =
-    selectedDayId === null ? (days[0]?.id ?? '') : selectedDayId;
+  const currentDayId = selectedDayId === null ? (days[0]?.id ?? '') : selectedDayId;
 
   useEffect(() => {
     if (!currentDayId) return;
@@ -254,8 +239,7 @@ function App() {
 
   const operationsKey = `${currentDayId}:${operationsRetry}`;
   const operationsReady = operationsRequest?.key === operationsKey;
-  const operationsSuccess =
-    operationsReady && operationsRequest?.status === 'success';
+  const operationsSuccess = operationsReady && operationsRequest?.status === 'success';
 
   const routes = operationsSuccess ? operationsRequest.data.routes : [];
   const parcels = operationsSuccess ? operationsRequest.data.parcels : [];
@@ -361,12 +345,8 @@ function App() {
             </button>
 
             <div>
-              <p className="text-xs text-slate-400">
-                Operations / {activePage}
-              </p>
-              <h1 className="mt-1 text-lg font-bold text-navy-950">
-                {activePage}
-              </h1>
+              <p className="text-xs text-slate-400">Operations / {activePage}</p>
+              <h1 className="mt-1 text-lg font-bold text-navy-950">{activePage}</h1>
             </div>
           </div>
 
@@ -447,14 +427,12 @@ function App() {
                   />
                 )}
 
-                {currentDayId &&
-                  operationsReady &&
-                  operationsRequest?.status === 'error' && (
-                    <ErrorNotice
-                      message={`Unable to load operations: ${operationsRequest.error}`}
-                      onRetry={() => setOperationsRetry((value) => value + 1)}
-                    />
-                  )}
+                {currentDayId && operationsReady && operationsRequest?.status === 'error' && (
+                  <ErrorNotice
+                    message={`Unable to load operations: ${operationsRequest.error}`}
+                    onRetry={() => setOperationsRetry((value) => value + 1)}
+                  />
+                )}
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
@@ -464,9 +442,7 @@ function App() {
                     className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-500">
-                        {label}
-                      </span>
+                      <span className="text-sm font-medium text-slate-500">{label}</span>
                       <div className="rounded-lg bg-teal-50 p-2.5 text-brand-600">
                         <Icon size={19} />
                       </div>
@@ -488,9 +464,7 @@ function App() {
               <div className="mt-7 grid gap-6 xl:grid-cols-3">
                 <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
                   <div className="border-b border-slate-100 px-6 py-5">
-                    <h3 className="font-semibold text-navy-950">
-                      Delivery Routes
-                    </h3>
+                    <h3 className="font-semibold text-navy-950">Delivery Routes</h3>
                     <p className="mt-1 text-xs text-slate-400">
                       {operationsSuccess
                         ? `${routes.length} routes for selected day`
@@ -504,17 +478,11 @@ function App() {
                         Loading routes...
                       </p>
                     ) : !currentDayId ? (
-                      <p className="p-4 text-sm text-slate-500">
-                        No delivery days available.
-                      </p>
+                      <p className="p-4 text-sm text-slate-500">No delivery days available.</p>
                     ) : !operationsSuccess ? (
-                      <p className="p-4 text-sm text-slate-500">
-                        Routes could not be loaded.
-                      </p>
+                      <p className="p-4 text-sm text-slate-500">Routes could not be loaded.</p>
                     ) : routes.length === 0 ? (
-                      <p className="p-4 text-sm text-slate-500">
-                        No routes for this delivery day.
-                      </p>
+                      <p className="p-4 text-sm text-slate-500">No routes for this delivery day.</p>
                     ) : (
                       routes.map((route, index) => (
                         <button
@@ -552,9 +520,7 @@ function App() {
 
                 <section className="rounded-xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
                   <div className="border-b border-slate-100 px-6 py-5">
-                    <h3 className="font-semibold text-navy-950">
-                      Route Stops & Parcels
-                    </h3>
+                    <h3 className="font-semibold text-navy-950">Route Stops & Parcels</h3>
                     <p className="mt-1 text-xs text-slate-400">
                       Stops displayed in delivery sequence
                     </p>
@@ -568,9 +534,7 @@ function App() {
                           : 'Waiting for route data...'}
                       </p>
                     ) : !currentRouteId ? (
-                      <p className="text-sm text-slate-500">
-                        No route selected.
-                      </p>
+                      <p className="text-sm text-slate-500">No route selected.</p>
                     ) : !stopsReady ? (
                       <p role="status" className="text-sm text-slate-500">
                         Loading stops...
@@ -586,15 +550,10 @@ function App() {
                       </p>
                     ) : (
                       stops.map((stop) => {
-                        const stopParcels = parcels.filter(
-                          (parcel) => parcel.stopId === stop.id,
-                        );
+                        const stopParcels = parcels.filter((parcel) => parcel.stopId === stop.id);
 
                         return (
-                          <div
-                            key={stop.id}
-                            className="rounded-xl border border-slate-200 p-4"
-                          >
+                          <div key={stop.id} className="rounded-xl border border-slate-200 p-4">
                             <div className="flex items-center gap-3">
                               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-50 text-sm font-bold text-brand-600">
                                 {stop.sequence}
@@ -616,10 +575,7 @@ function App() {
                                     key={parcel.id}
                                     className="flex items-start gap-2 rounded-lg bg-slate-50 p-3"
                                   >
-                                    <Package
-                                      size={16}
-                                      className="mt-0.5 shrink-0 text-brand-600"
-                                    />
+                                    <Package size={16} className="mt-0.5 shrink-0 text-brand-600" />
                                     <div>
                                       <p className="text-xs font-semibold text-navy-950">
                                         {parcel.trackingNumber}
@@ -647,9 +603,7 @@ function App() {
             </>
           ) : (
             <section className="rounded-xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-              <h2 className="text-xl font-bold text-navy-950">
-                {activePage}
-              </h2>
+              <h2 className="text-xl font-bold text-navy-950">{activePage}</h2>
               <p className="mt-3 text-sm text-slate-500">
                 This workspace will be implemented in a future ticket.
               </p>

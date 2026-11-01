@@ -48,10 +48,7 @@ export function RouteMap({ stops, parcels }: RouteMapProps) {
 
     mapRef.current = map;
 
-    map.addControl(
-      new maplibregl.NavigationControl(),
-      'top-right',
-    );
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
     return () => {
       map.remove();
@@ -84,9 +81,7 @@ export function RouteMap({ stops, parcels }: RouteMapProps) {
 
       markerElement.textContent = String(stop.sequence);
 
-      const parcelCount = parcels.filter(
-        (parcel) => parcel.stopId === stop.id,
-      ).length;
+      const parcelCount = parcels.filter((parcel) => parcel.stopId === stop.id).length;
 
       const popupContent = document.createElement('div');
 
@@ -150,21 +145,13 @@ export function RouteMap({ stops, parcels }: RouteMapProps) {
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 px-5 py-4">
-        <h3 className="font-bold text-[#14243b]">
-          Route Map
-        </h3>
+        <h3 className="font-bold text-[#14243b]">Route Map</h3>
 
-        <p className="mt-1 text-xs text-slate-500">
-          Interactive map of delivery stops
-        </p>
+        <p className="mt-1 text-xs text-slate-500">Interactive map of delivery stops</p>
       </div>
 
       <div className="relative">
-        <div
-          ref={containerRef}
-          aria-label="Delivery route map"
-          className="h-96 w-full"
-        />
+        <div ref={containerRef} aria-label="Delivery route map" className="h-96 w-full" />
 
         {stops.length === 0 && (
           <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">

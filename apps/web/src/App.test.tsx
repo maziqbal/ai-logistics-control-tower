@@ -13,6 +13,10 @@ vi.mock('./api/logistics-api', () => ({
     getParcels: vi.fn(),
     createParcel: vi.fn(),
     assignParcelToStop: vi.fn(),
+    getDrivers: vi.fn(),
+    getVehicles: vi.fn(),
+    createDriver: vi.fn(),
+    createVehicle: vi.fn(),
   },
 }));
 

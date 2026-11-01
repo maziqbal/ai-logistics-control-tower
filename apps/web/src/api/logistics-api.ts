@@ -40,6 +40,28 @@ export type CreateParcelInput = {
   latitude: number;
 };
 
+export type Driver = {
+  id: string;
+  name: string;
+  active: boolean;
+};
+
+export type Vehicle = {
+  id: string;
+  registrationNumber: string;
+  active: boolean;
+};
+
+export type CreateDriverInput = {
+  name: string;
+  active: boolean;
+};
+
+export type CreateVehicleInput = {
+  registrationNumber: string;
+  active: boolean;
+};
+
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, { signal });
 
@@ -79,6 +101,46 @@ export const logisticsApi = {
     }
 
     return (await response.json()) as Parcel;
+  },
+
+  getDrivers: (signal?: AbortSignal) => getJson<Driver[]>('/api/v1/drivers', signal),
+
+  getVehicles: (signal?: AbortSignal) => getJson<Vehicle[]>('/api/v1/vehicles', signal),
+
+  createDriver: async (input: CreateDriverInput): Promise<Driver> => {
+    const response = await fetch(`${API_BASE_URL}/api/v1/drivers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Driver creation failed (${response.status})`);
+    }
+
+    return (await response.json()) as Driver;
+  },
+
+  createVehicle: async (input: CreateVehicleInput): Promise<Vehicle> => {
+    const response = await fetch(`${API_BASE_URL}/api/v1/vehicles`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      if (response.status === 409) {
+        throw new Error('A vehicle with this registration number already exists.');
+      }
+
+      throw new Error(`Vehicle creation failed (${response.status})`);
+    }
+
+    return (await response.json()) as Vehicle;
   },
 
   assignParcelToStop: async (dayId: string, parcelId: string, stopId: string): Promise<void> => {

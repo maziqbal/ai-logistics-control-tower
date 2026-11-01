@@ -15,6 +15,7 @@ import {
 
 import { ParcelAssignmentPanel } from '../components/dispatch/ParcelAssignmentPanel';
 import { ParcelCreationPanel } from '../components/dispatch/ParcelCreationPanel';
+import { RouteAssignmentPanel } from '../components/dispatch/RouteAssignmentPanel';
 import {
   logisticsApi,
   type CreateParcelInput,
@@ -74,16 +75,20 @@ function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => voi
 
 export function OperationsOverviewPage() {
   const [daysRequest, setDaysRequest] = useState<RequestState<DeliveryDay[]> | null>(null);
+
   const [daysRetry, setDaysRetry] = useState(0);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
 
   const [operationsRequest, setOperationsRequest] = useState<RequestState<OperationsData> | null>(
     null,
   );
+
   const [operationsRetry, setOperationsRetry] = useState(0);
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+
   const [stopsRequest, setStopsRequest] = useState<RequestState<DeliveryStop[]> | null>(null);
+
   const [stopsRetry, setStopsRetry] = useState(0);
 
   useEffect(() => {
@@ -116,6 +121,7 @@ export function OperationsOverviewPage() {
   }, [daysRetry]);
 
   const daysReady = daysRequest?.key === String(daysRetry);
+
   const days = daysReady && daysRequest?.status === 'success' ? daysRequest.data : [];
 
   const currentDayId = selectedDayId === null ? (days[0]?.id ?? '') : selectedDayId;
@@ -154,10 +160,13 @@ export function OperationsOverviewPage() {
   }, [currentDayId, operationsRetry]);
 
   const operationsKey = `${currentDayId}:${operationsRetry}`;
+
   const operationsReady = operationsRequest?.key === operationsKey;
+
   const operationsSuccess = operationsReady && operationsRequest?.status === 'success';
 
   const routes = operationsSuccess ? operationsRequest.data.routes : [];
+
   const parcels = operationsSuccess ? operationsRequest.data.parcels : [];
 
   const currentRouteId =
@@ -197,20 +206,31 @@ export function OperationsOverviewPage() {
   }, [currentDayId, currentRouteId, operationsSuccess, stopsRetry]);
 
   const stopsKey = `${currentDayId}:${currentRouteId}:${stopsRetry}`;
+
   const stopsReady = stopsRequest?.key === stopsKey;
+
   const stopsSuccess = stopsReady && stopsRequest?.status === 'success';
 
   const stops = stopsSuccess ? [...stopsRequest.data].sort((a, b) => a.sequence - b.sequence) : [];
 
   const selectedDay = days.find((day) => day.id === currentDayId);
+
   const assignedCount = parcels.filter((parcel) => parcel.stopId !== null).length;
 
   const assignmentPercent =
     parcels.length > 0 ? Math.round((assignedCount / parcels.length) * 100) : 0;
 
   const stats = [
-    { label: 'Routes', value: routes.length, icon: Route },
-    { label: 'Parcels', value: parcels.length, icon: Package },
+    {
+      label: 'Routes',
+      value: routes.length,
+      icon: Route,
+    },
+    {
+      label: 'Parcels',
+      value: parcels.length,
+      icon: Package,
+    },
     {
       label: 'Assigned Parcels',
       value: assignedCount,
@@ -223,7 +243,10 @@ export function OperationsOverviewPage() {
     },
   ];
 
+  const selectedRoute = routes.find((route) => route.id === currentRouteId);
+
   const selectedRouteIndex = routes.findIndex((route) => route.id === currentRouteId);
+
   const selectedRouteLabel =
     selectedRouteIndex >= 0 ? `Route ${selectedRouteIndex + 1}` : 'the selected route';
 
@@ -240,7 +263,6 @@ export function OperationsOverviewPage() {
 
     await logisticsApi.createParcel(currentDayId, input);
 
-    // Refresh server data so parcel counts and assignment options update.
     setOperationsRetry((value) => value + 1);
   }
 
@@ -267,7 +289,6 @@ export function OperationsOverviewPage() {
 
     await logisticsApi.assignParcelToStop(currentDayId, parcelId, stopId);
 
-    // Reload server data so KPI counts and stop details reflect the assignment.
     setOperationsRetry((value) => value + 1);
     setStopsRetry((value) => value + 1);
   }
@@ -277,6 +298,7 @@ export function OperationsOverviewPage() {
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-[#14243b]">Operations Overview</h2>
+
           <p className="mt-1 text-sm text-slate-500">
             Routes, stops and parcel assignments at a glance.
           </p>
@@ -309,7 +331,9 @@ export function OperationsOverviewPage() {
 
               {days.map((day) => (
                 <option key={day.id} value={day.id}>
-                  {formatDate(day.serviceDate)} · {day.operatingArea}
+                  {formatDate(day.serviceDate)}
+                  {' · '}
+                  {day.operatingArea}
                 </option>
               ))}
             </select>
@@ -356,6 +380,7 @@ export function OperationsOverviewPage() {
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500">{label}</span>
+
               <Icon size={17} className="text-teal-700" />
             </div>
 
@@ -369,6 +394,7 @@ export function OperationsOverviewPage() {
       <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div className="min-w-42">
           <p className="text-xs font-bold text-[#14243b]">Assignment Progress</p>
+
           <p className="mt-1 text-[11px] text-slate-500">
             {operationsSuccess
               ? `${assignedCount} of ${parcels.length} parcels assigned`
@@ -402,6 +428,7 @@ export function OperationsOverviewPage() {
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-5 py-4">
               <h3 className="font-bold text-[#14243b]">Delivery Routes</h3>
+
               <p className="mt-1 text-xs text-slate-500">
                 {operationsSuccess ? `${routes.length} routes for selected day` : 'Route overview'}
               </p>
@@ -456,6 +483,15 @@ export function OperationsOverviewPage() {
             </div>
           </section>
 
+          {/* Route Assignment UI */}
+          {operationsSuccess && selectedRoute && (
+            <RouteAssignmentPanel
+              key={`${currentDayId}:${selectedRoute.id}:${selectedRoute.version}:${selectedRoute.driverId ?? ''}:${selectedRoute.vehicleId ?? ''}`}
+              route={selectedRoute}
+              onAssigned={() => setOperationsRetry((value) => value + 1)}
+            />
+          )}
+
           {currentDayId && (
             <ParcelCreationPanel
               key={currentDayId}
@@ -493,6 +529,7 @@ export function OperationsOverviewPage() {
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4">
             <h3 className="font-bold text-[#14243b]">Route Stops & Parcels</h3>
+
             <p className="mt-1 text-xs text-slate-500">Stops displayed in delivery sequence</p>
           </div>
 
@@ -527,6 +564,7 @@ export function OperationsOverviewPage() {
 
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-[#14243b]">{stop.locationKey}</p>
+
                         <p className="mt-1 text-xs text-slate-500">{stopParcels.length} parcels</p>
                       </div>
 
@@ -546,6 +584,7 @@ export function OperationsOverviewPage() {
                               <p className="text-xs font-bold text-[#14243b]">
                                 {parcel.trackingNumber}
                               </p>
+
                               <p className="mt-1 text-xs text-slate-500">{parcel.destination}</p>
                             </div>
                           </div>
@@ -565,7 +604,9 @@ export function OperationsOverviewPage() {
         Dispatcher operations · Data from Logistics API
         {selectedDay && (
           <span className="ml-auto hidden sm:inline">
-            {selectedDay.operatingArea} · {formatDate(selectedDay.serviceDate)}
+            {selectedDay.operatingArea}
+            {' · '}
+            {formatDate(selectedDay.serviceDate)}
           </span>
         )}
       </div>

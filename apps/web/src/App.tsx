@@ -4,19 +4,18 @@ import {
   AlertCircle,
   Boxes,
   CalendarDays,
+  CheckCircle2,
   ChevronDown,
-  ChevronRight,
   ClipboardList,
-  LayoutDashboard,
-  Map,
+  MapPin,
   Menu,
   Package,
   RefreshCw,
   Route,
   Truck,
-  X,
 } from 'lucide-react';
 
+import { Sidebar } from './components/layout/Sidebar';
 import {
   logisticsApi,
   type DeliveryDay,
@@ -37,21 +36,6 @@ type OperationsData = {
   parcels: Parcel[];
 };
 
-type SidebarProps = {
-  activePage: string;
-  onNavigate: (page: string) => void;
-  onClose: () => void;
-};
-
-const navigation = [
-  { label: 'Overview', icon: LayoutDashboard },
-  { label: 'Delivery Days', icon: CalendarDays },
-  { label: 'Routes', icon: Route },
-  { label: 'Live Tracking', icon: Map },
-  { label: 'Drivers', icon: Truck },
-  { label: 'Parcels', icon: Package },
-];
-
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'An unexpected error occurred.';
 }
@@ -65,86 +49,20 @@ function formatDate(value: string): string {
   }).format(new Date(`${value}T12:00:00Z`));
 }
 
-function Sidebar({ activePage, onNavigate, onClose }: SidebarProps) {
-  return (
-    <aside className="flex h-full w-64 flex-col bg-navy-950 text-slate-300">
-      <div className="flex h-20 items-center gap-3 border-b border-white/10 px-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500 text-white">
-          <Boxes size={23} />
-        </div>
-        <div>
-          <div className="text-sm font-bold tracking-wide text-white">CONTROL TOWER</div>
-          <div className="text-[11px] text-slate-400">Logistics Intelligence</div>
-        </div>
-        <button
-          type="button"
-          className="ml-auto lg:hidden"
-          onClick={onClose}
-          aria-label="Close navigation"
-        >
-          <X size={20} />
-        </button>
-      </div>
-
-      <div className="px-4 pt-7">
-        <p className="mb-3 px-3 text-[10px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
-          Workspace
-        </p>
-
-        <nav className="space-y-1" aria-label="Main navigation">
-          {navigation.map(({ label, icon: Icon }) => {
-            const active = activePage === label;
-
-            return (
-              <button
-                key={label}
-                type="button"
-                onClick={() => onNavigate(label)}
-                aria-current={active ? 'page' : undefined}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors ${
-                  active
-                    ? 'bg-brand-500/15 font-medium text-teal-300'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                <Icon size={18} />
-                <span className="flex-1">{label}</span>
-                {active && <ChevronRight size={15} />}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      <div className="mt-auto border-t border-white/10 p-5">
-        <div className="flex items-center gap-3 rounded-xl bg-white/5 p-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
-            CT
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-white">Dispatcher</div>
-            <div className="text-[11px] text-slate-400">Operations workspace</div>
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
 function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div
       role="alert"
-      className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4"
     >
-      <div className="flex items-center gap-3 text-sm text-red-700">
-        <AlertCircle size={19} className="shrink-0" />
+      <div className="flex items-center gap-2 text-sm text-red-700">
+        <AlertCircle size={18} className="shrink-0" />
         <span>{message}</span>
       </div>
       <button
         type="button"
         onClick={onRetry}
-        className="flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+        className="flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700"
       >
         <RefreshCw size={15} />
         Retry
@@ -283,15 +201,23 @@ function App() {
   const stopsKey = `${currentDayId}:${currentRouteId}:${stopsRetry}`;
   const stopsReady = stopsRequest?.key === stopsKey;
   const stopsSuccess = stopsReady && stopsRequest?.status === 'success';
-  const stops = stopsSuccess ? stopsRequest.data : [];
+
+  const stops = stopsSuccess ? [...stopsRequest.data].sort((a, b) => a.sequence - b.sequence) : [];
 
   const selectedDay = days.find((day) => day.id === currentDayId);
   const assignedCount = parcels.filter((parcel) => parcel.stopId !== null).length;
 
+  const assignmentPercent =
+    parcels.length > 0 ? Math.round((assignedCount / parcels.length) * 100) : 0;
+
   const stats = [
     { label: 'Routes', value: routes.length, icon: Route },
     { label: 'Parcels', value: parcels.length, icon: Package },
-    { label: 'Assigned Parcels', value: assignedCount, icon: Boxes },
+    {
+      label: 'Assigned Parcels',
+      value: assignedCount,
+      icon: CheckCircle2,
+    },
     {
       label: 'Unassigned Parcels',
       value: parcels.length - assignedCount,
@@ -304,8 +230,14 @@ function App() {
     setSidebarOpen(false);
   }
 
+  function refreshDashboard() {
+    setDaysRetry((value) => value + 1);
+    setOperationsRetry((value) => value + 1);
+    setStopsRetry((value) => value + 1);
+  }
+
   return (
-    <div className="flex min-h-screen bg-workspace">
+    <div className="flex min-h-screen bg-[#f3f6fa]">
       <div className="sticky top-0 hidden h-screen shrink-0 lg:block">
         <Sidebar
           activePage={activePage}
@@ -333,46 +265,48 @@ function App() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white px-5 lg:px-9">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-30 flex h-17 items-center justify-between border-b border-slate-200 bg-white px-5 lg:px-8">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               className="rounded-lg p-2 lg:hidden"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open navigation"
             >
-              <Menu size={22} />
+              <Menu size={21} />
             </button>
 
             <div>
-              <p className="text-xs text-slate-400">Operations / {activePage}</p>
-              <h1 className="mt-1 text-lg font-bold text-navy-950">{activePage}</h1>
+              <p className="text-[11px] text-slate-400">Workspace / {activePage}</p>
+              <h1 className="text-sm font-bold text-[#14243b]">
+                {activePage === 'Overview' ? 'Operations Dashboard' : activePage}
+              </h1>
             </div>
           </div>
 
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-navy-900 text-xs font-bold text-white">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#17263d] text-xs font-bold text-white">
             CT
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-8 lg:px-9">
+        <main className="mx-auto w-full max-w-400 flex-1 px-5 py-6 lg:px-8">
           {activePage === 'Overview' ? (
             <>
-              <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight text-navy-950">
+                  <h2 className="text-2xl font-bold tracking-tight text-[#14243b]">
                     Operations Overview
                   </h2>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Delivery routes, stops and parcel assignments.
+                  <p className="mt-1 text-sm text-slate-500">
+                    Routes, stops and parcel assignments at a glance.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <div className="relative">
                     <CalendarDays
-                      size={17}
-                      className="pointer-events-none absolute top-3 left-3 text-slate-400"
+                      size={16}
+                      className="pointer-events-none absolute top-2.5 left-3 text-slate-400"
                     />
                     <select
                       aria-label="Select delivery day"
@@ -384,7 +318,7 @@ function App() {
                         setOperationsRetry(0);
                         setStopsRetry(0);
                       }}
-                      className="min-w-56 appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pr-9 pl-10 text-sm text-slate-700 shadow-sm disabled:opacity-60"
+                      className="min-w-54 appearance-none rounded-lg border border-slate-200 bg-white py-2 pr-9 pl-9 text-sm text-slate-700 shadow-sm disabled:opacity-60"
                     >
                       {days.length === 0 && (
                         <option value="">
@@ -398,28 +332,24 @@ function App() {
                       ))}
                     </select>
                     <ChevronDown
-                      size={16}
-                      className="pointer-events-none absolute top-3 right-3 text-slate-400"
+                      size={15}
+                      className="pointer-events-none absolute top-2.5 right-3 text-slate-400"
                     />
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setDaysRetry((value) => value + 1);
-                      setOperationsRetry((value) => value + 1);
-                      setStopsRetry((value) => value + 1);
-                    }}
+                    onClick={refreshDashboard}
                     aria-label="Refresh dashboard"
                     title="Refresh dashboard"
-                    className="rounded-lg border border-slate-200 bg-white p-2.5 text-slate-600 shadow-sm hover:bg-slate-50"
+                    className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:text-teal-700"
                   >
-                    <RefreshCw size={18} />
+                    <RefreshCw size={17} />
                   </button>
                 </div>
               </div>
 
-              <div className="mb-6 space-y-3">
+              <div className="mb-4 space-y-3">
                 {daysReady && daysRequest?.status === 'error' && (
                   <ErrorNotice
                     message={`Unable to load delivery days: ${daysRequest.error}`}
@@ -435,44 +365,66 @@ function App() {
                 )}
               </div>
 
-              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {stats.map(({ label, value, icon: Icon }) => (
                   <div
                     key={label}
-                    className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-500">{label}</span>
-                      <div className="rounded-lg bg-teal-50 p-2.5 text-brand-600">
-                        <Icon size={19} />
-                      </div>
+                      <span className="text-xs font-semibold text-slate-500">{label}</span>
+                      <Icon size={17} className="text-teal-700" />
                     </div>
-
-                    <div className="mt-5 text-3xl font-bold text-navy-950">
+                    <p className="mt-3 text-3xl font-bold text-[#14243b]">
                       {operationsSuccess ? value : '—'}
-                    </div>
-
-                    <p className="mt-2 text-xs text-slate-400">
-                      {selectedDay
-                        ? `${selectedDay.operatingArea} · ${formatDate(selectedDay.serviceDate)}`
-                        : 'No delivery day selected'}
                     </p>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-7 grid gap-6 xl:grid-cols-3">
-                <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <div className="border-b border-slate-100 px-6 py-5">
-                    <h3 className="font-semibold text-navy-950">Delivery Routes</h3>
-                    <p className="mt-1 text-xs text-slate-400">
+              <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
+                <div className="min-w-42">
+                  <p className="text-xs font-bold text-[#14243b]">Assignment Progress</p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {operationsSuccess
+                      ? `${assignedCount} of ${parcels.length} parcels assigned`
+                      : 'Waiting for assignment data'}
+                  </p>
+                </div>
+
+                <div
+                  className="h-2 min-w-30 flex-1 overflow-hidden rounded-full bg-slate-100"
+                  role="progressbar"
+                  aria-label="Parcel assignment progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={operationsSuccess ? assignmentPercent : 0}
+                >
+                  <div
+                    className="h-full rounded-full bg-teal-500"
+                    style={{
+                      width: `${operationsSuccess ? assignmentPercent : 0}%`,
+                    }}
+                  />
+                </div>
+
+                <span className="text-sm font-bold text-teal-700">
+                  {operationsSuccess ? `${assignmentPercent}%` : '—'}
+                </span>
+              </div>
+
+              <div className="mt-5 grid items-start gap-4 xl:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.7fr)]">
+                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-100 px-5 py-4">
+                    <h3 className="font-bold text-[#14243b]">Delivery Routes</h3>
+                    <p className="mt-1 text-xs text-slate-500">
                       {operationsSuccess
                         ? `${routes.length} routes for selected day`
                         : 'Route overview'}
                     </p>
                   </div>
 
-                  <div className="space-y-2 p-4">
+                  <div className="space-y-2 p-3">
                     {!daysReady || (currentDayId && !operationsReady) ? (
                       <p role="status" className="p-4 text-sm text-slate-500">
                         Loading routes...
@@ -492,24 +444,26 @@ function App() {
                             setSelectedRouteId(route.id);
                             setStopsRetry(0);
                           }}
-                          className={`w-full rounded-lg border p-4 text-left transition-colors ${
+                          aria-pressed={currentRouteId === route.id}
+                          className={`w-full rounded-lg border p-3 text-left transition-colors ${
                             currentRouteId === route.id
-                              ? 'border-teal-300 bg-teal-50'
-                              : 'border-slate-100 hover:bg-slate-50'
+                              ? 'border-teal-400 bg-teal-50/70'
+                              : 'border-slate-200 hover:bg-slate-50'
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold text-navy-950">
+                            <span className="flex items-center gap-2 text-sm font-bold text-[#14243b]">
+                              <Truck size={16} className="text-teal-700" />
                               Route {index + 1}
                             </span>
-                            <span className="rounded-full bg-slate-100 px-2 py-1 text-xs capitalize text-slate-600">
+                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600 capitalize">
                               {route.status}
                             </span>
                           </div>
+
                           <p className="mt-2 text-xs text-slate-500">
                             Driver: {route.driverId ? 'Assigned' : 'Unassigned'}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
+                            {' · '}
                             Vehicle: {route.vehicleId ? 'Assigned' : 'Unassigned'}
                           </p>
                         </button>
@@ -518,15 +472,15 @@ function App() {
                   </div>
                 </section>
 
-                <section className="rounded-xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
-                  <div className="border-b border-slate-100 px-6 py-5">
-                    <h3 className="font-semibold text-navy-950">Route Stops & Parcels</h3>
-                    <p className="mt-1 text-xs text-slate-400">
+                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-100 px-5 py-4">
+                    <h3 className="font-bold text-[#14243b]">Route Stops & Parcels</h3>
+                    <p className="mt-1 text-xs text-slate-500">
                       Stops displayed in delivery sequence
                     </p>
                   </div>
 
-                  <div className="space-y-4 p-6">
+                  <div className="space-y-3 p-4">
                     {!operationsSuccess ? (
                       <p className="text-sm text-slate-500">
                         {operationsReady
@@ -553,31 +507,32 @@ function App() {
                         const stopParcels = parcels.filter((parcel) => parcel.stopId === stop.id);
 
                         return (
-                          <div key={stop.id} className="rounded-xl border border-slate-200 p-4">
+                          <div key={stop.id} className="rounded-lg border border-slate-200 p-4">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-50 text-sm font-bold text-brand-600">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50 text-sm font-bold text-teal-700">
                                 {stop.sequence}
                               </div>
-                              <div className="flex-1">
-                                <p className="text-sm font-semibold text-navy-950">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-[#14243b]">
                                   {stop.locationKey}
                                 </p>
-                                <p className="mt-1 text-xs text-slate-400">
+                                <p className="mt-1 text-xs text-slate-500">
                                   {stopParcels.length} parcels
                                 </p>
                               </div>
+                              <MapPin size={16} className="shrink-0 text-slate-400" />
                             </div>
 
                             {stopParcels.length > 0 && (
-                              <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
+                              <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
                                 {stopParcels.map((parcel) => (
                                   <div
                                     key={parcel.id}
                                     className="flex items-start gap-2 rounded-lg bg-slate-50 p-3"
                                   >
-                                    <Package size={16} className="mt-0.5 shrink-0 text-brand-600" />
+                                    <Package size={15} className="mt-0.5 shrink-0 text-teal-700" />
                                     <div>
-                                      <p className="text-xs font-semibold text-navy-950">
+                                      <p className="text-xs font-bold text-[#14243b]">
                                         {parcel.trackingNumber}
                                       </p>
                                       <p className="mt-1 text-xs text-slate-500">
@@ -596,14 +551,22 @@ function App() {
                 </section>
               </div>
 
-              <div className="mt-6 flex items-center gap-2 text-xs text-slate-400">
+              <div className="mt-5 flex items-center gap-2 text-xs text-slate-400">
                 <ClipboardList size={14} />
                 Read-only operations overview · Data from Logistics API
+                {selectedDay && (
+                  <span className="ml-auto hidden sm:inline">
+                    {selectedDay.operatingArea} · {formatDate(selectedDay.serviceDate)}
+                  </span>
+                )}
               </div>
             </>
           ) : (
             <section className="rounded-xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-              <h2 className="text-xl font-bold text-navy-950">{activePage}</h2>
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                <Boxes size={23} />
+              </div>
+              <h2 className="text-xl font-bold text-[#14243b]">{activePage}</h2>
               <p className="mt-3 text-sm text-slate-500">
                 This workspace will be implemented in a future ticket.
               </p>
@@ -611,7 +574,7 @@ function App() {
           )}
         </main>
 
-        <footer className="border-t border-slate-200 px-9 py-4 text-center text-xs text-slate-400">
+        <footer className="border-t border-slate-200 px-8 py-4 text-center text-xs text-slate-400">
           AI Logistics Control Tower · Dispatcher Workspace
         </footer>
       </div>

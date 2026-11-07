@@ -15,16 +15,16 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { SimulationService } from './simulation.service';
+import { SimulationRuntimeService } from './simulation-runtime.service';
 
 @ApiTags('Simulations')
 @Controller('api/v1/simulations')
 export class SimulationController {
-  constructor(private readonly simulationService: SimulationService) {}
+  constructor(private readonly simulationRuntime: SimulationRuntimeService) {}
 
   @Post(':routeId/start')
   @ApiOperation({
-    summary: 'Start a GPS simulation for a delivery route',
+    summary: 'Start a live GPS simulation for a delivery route',
   })
   @ApiBody({
     schema: {
@@ -34,7 +34,7 @@ export class SimulationController {
         speedMetersPerSecond: {
           type: 'number',
           example: 10,
-          description: 'Simulated vehicle speed in meters per second',
+          description: 'Simulated speed in meters per second',
         },
       },
     },
@@ -43,29 +43,29 @@ export class SimulationController {
     description: 'Invalid route ID or speed',
   })
   @ApiConflictResponse({
-    description: 'Simulation already exists for this route',
+    description: 'A simulation already exists for this route',
   })
   start(
     @Param('routeId', new ParseUUIDPipe()) routeId: string,
     @Body('speedMetersPerSecond') speedMetersPerSecond: number,
   ) {
-    return this.simulationService.start(routeId, speedMetersPerSecond);
+    return this.simulationRuntime.start(routeId, speedMetersPerSecond);
   }
 
   @Get(':routeId')
   @ApiOperation({
-    summary: 'Get the current GPS simulation snapshot',
+    summary: 'Get the current live GPS simulation snapshot',
   })
   @ApiNotFoundResponse({
     description: 'Simulation session not found',
   })
   get(@Param('routeId', new ParseUUIDPipe()) routeId: string) {
-    return this.simulationService.get(routeId);
+    return this.simulationRuntime.get(routeId);
   }
 
   @Post(':routeId/advance')
   @ApiOperation({
-    summary: 'Advance the simulation by a number of seconds',
+    summary: 'Manually advance the simulation',
   })
   @ApiBody({
     schema: {
@@ -75,7 +75,7 @@ export class SimulationController {
         seconds: {
           type: 'number',
           example: 5,
-          description: 'Simulation time to advance, in seconds',
+          description: 'Additional simulated seconds',
         },
       },
     },
@@ -90,24 +90,30 @@ export class SimulationController {
     @Param('routeId', new ParseUUIDPipe()) routeId: string,
     @Body('seconds') seconds: number,
   ) {
-    return this.simulationService.advance(routeId, seconds);
+    return this.simulationRuntime.advance(routeId, seconds);
   }
 
   @Post(':routeId/pause')
-  @ApiOperation({ summary: 'Pause a running simulation' })
+  @ApiOperation({
+    summary: 'Pause a running GPS simulation',
+  })
   pause(@Param('routeId', new ParseUUIDPipe()) routeId: string) {
-    return this.simulationService.pause(routeId);
+    return this.simulationRuntime.pause(routeId);
   }
 
   @Post(':routeId/resume')
-  @ApiOperation({ summary: 'Resume a paused simulation' })
+  @ApiOperation({
+    summary: 'Resume a paused GPS simulation',
+  })
   resume(@Param('routeId', new ParseUUIDPipe()) routeId: string) {
-    return this.simulationService.resume(routeId);
+    return this.simulationRuntime.resume(routeId);
   }
 
   @Post(':routeId/stop')
-  @ApiOperation({ summary: 'Stop an active simulation' })
+  @ApiOperation({
+    summary: 'Stop an active GPS simulation',
+  })
   stop(@Param('routeId', new ParseUUIDPipe()) routeId: string) {
-    return this.simulationService.stop(routeId);
+    return this.simulationRuntime.stop(routeId);
   }
 }

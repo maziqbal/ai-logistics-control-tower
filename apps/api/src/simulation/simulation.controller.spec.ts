@@ -1,5 +1,5 @@
 import { SimulationController } from './simulation.controller';
-import { SimulationService } from './simulation.service';
+import { SimulationRuntimeService } from './simulation-runtime.service';
 
 describe('SimulationController', () => {
   let controller: SimulationController;
@@ -32,7 +32,7 @@ describe('SimulationController', () => {
     jest.resetAllMocks();
 
     controller = new SimulationController(
-      simulationService as unknown as SimulationService,
+      simulationService as unknown as SimulationRuntimeService,
     );
   });
 

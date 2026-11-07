@@ -15,5 +15,6 @@ import { RoutesService } from './routes.service';
     RouteGeometryController,
   ],
   providers: [RoutesService, RouteGeometryService],
+  exports: [RouteGeometryService],
 })
 export class RoutesModule {}

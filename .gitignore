@@ -19,3 +19,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# OSRM downloaded and generated routing data
+infra/osrm/data/

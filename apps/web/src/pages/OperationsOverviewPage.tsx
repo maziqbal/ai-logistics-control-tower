@@ -24,6 +24,7 @@ import {
   type DeliveryRoute,
   type DeliveryStop,
   type Parcel,
+  type RouteGeometryResponse,
 } from '../api/logistics-api';
 
 type RequestState<T> = {
@@ -91,6 +92,7 @@ export function OperationsOverviewPage() {
   const [stopsRequest, setStopsRequest] = useState<RequestState<DeliveryStop[]> | null>(null);
 
   const [stopsRetry, setStopsRetry] = useState(0);
+  const [geometryRequest, setGeometryRequest] = useState<RequestState<RouteGeometryResponse> | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -213,6 +215,54 @@ export function OperationsOverviewPage() {
   const stopsSuccess = stopsReady && stopsRequest?.status === 'success';
 
   const stops = stopsSuccess ? [...stopsRequest.data].sort((a, b) => a.sequence - b.sequence) : [];
+
+
+  // Fetch routing data for the current route only. The request key prevents a
+  // previous route's geometry being shown while switching routes or refreshing.
+  useEffect(() => {
+    if (!currentRouteId || !stopsSuccess) return;
+
+    const controller = new AbortController();
+
+    logisticsApi
+      .getRouteGeometry(currentRouteId, controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) {
+          setGeometryRequest({
+            key: stopsKey,
+            status: 'success',
+            data,
+            error: '',
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setGeometryRequest({
+            key: stopsKey,
+            status: 'error',
+            data: {
+              routeId: currentRouteId,
+              status: 'no_route',
+              geometry: null,
+              distanceMeters: null,
+              durationSeconds: null,
+            },
+            error: getErrorMessage(error),
+          });
+        }
+      });
+
+    return () => controller.abort();
+  }, [currentRouteId, stopsSuccess, stopsKey]);
+
+  const geometryReady = geometryRequest?.key === stopsKey;
+  const geometrySuccess = geometryReady && geometryRequest?.status === 'success';
+  const routeGeometry = geometrySuccess ? geometryRequest.data : null;
+  const geometryLoading = stopsSuccess && !geometryReady;
+  const geometryError = geometryReady && geometryRequest?.status === 'error'
+    ? geometryRequest.error
+    : null;
 
   const selectedDay = days.find((day) => day.id === currentDayId);
 
@@ -555,7 +605,17 @@ export function OperationsOverviewPage() {
               </p>
             </section>
           ) : (
-            <RouteMap key={`${currentDayId}:${currentRouteId}`} stops={stops} parcels={parcels} />
+            <RouteMap
+              key={`${currentDayId}:${currentRouteId}`}
+              stops={stops}
+              parcels={parcels}
+              geometry={routeGeometry?.geometry ?? null}
+              distanceMeters={routeGeometry?.distanceMeters ?? null}
+              durationSeconds={routeGeometry?.durationSeconds ?? null}
+              routeStatus={routeGeometry?.status ?? null}
+              geometryLoading={geometryLoading}
+              geometryError={geometryError}
+            />
           )}
 
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

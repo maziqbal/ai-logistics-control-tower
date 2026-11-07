@@ -21,5 +21,22 @@ services:
       timeout: 3s
       retries: 10
 
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    container_name: logistics-osrm
+    restart: unless-stopped
+
+    command:
+      - osrm-routed
+      - --algorithm
+      - mld
+      - /data/helsinki-region.osrm
+
+    ports:
+      - '127.0.0.1:5000:5000'
+
+    volumes:
+      - ./osrm/data/helsinki:/data:ro
+
 volumes:
   postgres_data:

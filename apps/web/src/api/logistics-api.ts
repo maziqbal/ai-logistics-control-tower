@@ -26,6 +26,19 @@ export type DeliveryStop = {
   latitude: number;
 };
 
+export type RouteGeometry = {
+  type: 'LineString';
+  coordinates: number[][];
+};
+
+export type RouteGeometryResponse = {
+  routeId: string;
+  status: 'ready' | 'insufficient_stops' | 'no_route';
+  geometry: RouteGeometry | null;
+  distanceMeters: number | null;
+  durationSeconds: number | null;
+};
+
 export type Parcel = {
   id: string;
   deliveryDayId: string;
@@ -199,4 +212,10 @@ export const logisticsApi = {
 
     return (await response.json()) as DeliveryRoute;
   },
+
+  getRouteGeometry: (routeId: string, signal?: AbortSignal) =>
+    getJson<RouteGeometryResponse>(
+      `/api/v1/routes/${encodeURIComponent(routeId)}/geometry`,
+      signal,
+    ),
 };

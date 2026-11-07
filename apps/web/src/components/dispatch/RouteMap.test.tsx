@@ -10,6 +10,15 @@ const mapMocks = vi.hoisted(() => ({
   flyTo: vi.fn(),
   fitBounds: vi.fn(),
   mapRemove: vi.fn(),
+  isStyleLoaded: vi.fn(() => true),
+  getSource: vi.fn(),
+  getLayer: vi.fn(),
+  addSource: vi.fn(),
+  addLayer: vi.fn(),
+  removeSource: vi.fn(),
+  removeLayer: vi.fn(),
+  mapOnce: vi.fn(),
+  mapOff: vi.fn(),
 
   markerConstructor: vi.fn(),
   markerSetLngLat: vi.fn(),
@@ -30,6 +39,15 @@ vi.mock('maplibre-gl', () => {
     flyTo = mapMocks.flyTo;
     fitBounds = mapMocks.fitBounds;
     remove = mapMocks.mapRemove;
+    isStyleLoaded = mapMocks.isStyleLoaded;
+    getSource = mapMocks.getSource;
+    getLayer = mapMocks.getLayer;
+    addSource = mapMocks.addSource;
+    addLayer = mapMocks.addLayer;
+    removeSource = mapMocks.removeSource;
+    removeLayer = mapMocks.removeLayer;
+    once = mapMocks.mapOnce;
+    off = mapMocks.mapOff;
 
     constructor(options: unknown) {
       mapMocks.mapConstructor(options);
@@ -92,6 +110,7 @@ vi.mock('maplibre-gl', () => {
     Popup,
     Marker,
     LngLatBounds,
+    setWorkerUrl: vi.fn(),
   };
 });
 
@@ -134,6 +153,9 @@ const secondParcel: Parcel = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mapMocks.isStyleLoaded.mockReturnValue(true);
+  mapMocks.getSource.mockReturnValue(undefined);
+  mapMocks.getLayer.mockReturnValue(undefined);
 });
 
 describe('RouteMap', () => {
@@ -146,14 +168,11 @@ describe('RouteMap', () => {
       expect.objectContaining({
         center: [24.9384, 60.1699],
         zoom: 11,
-        style: expect.objectContaining({
-          version: 8,
-        }),
+        style: expect.objectContaining({ version: 8 }),
       }),
     );
 
     expect(mapMocks.addControl).toHaveBeenCalledTimes(1);
-
     expect(screen.getByLabelText('Delivery route map')).toBeInTheDocument();
   });
 
@@ -165,7 +184,6 @@ describe('RouteMap', () => {
     const firstMarkerOptions = mapMocks.markerConstructor.mock.calls[0][0] as {
       element: HTMLElement;
     };
-
     const secondMarkerOptions = mapMocks.markerConstructor.mock.calls[1][0] as {
       element: HTMLElement;
     };
@@ -174,23 +192,17 @@ describe('RouteMap', () => {
     expect(secondMarkerOptions.element.textContent).toBe('2');
 
     expect(mapMocks.markerSetLngLat).toHaveBeenCalledWith([24.941, 60.171]);
-
     expect(mapMocks.markerSetLngLat).toHaveBeenCalledWith([24.952, 60.17]);
-
     expect(mapMocks.markerAddTo).toHaveBeenCalledTimes(2);
   });
 
   it('includes the location and parcel count in marker popups', () => {
     render(<RouteMap stops={[firstStop]} parcels={[firstParcel, secondParcel]} />);
 
-    expect(mapMocks.popupConstructor).toHaveBeenCalledWith({
-      offset: 20,
-    });
-
+    expect(mapMocks.popupConstructor).toHaveBeenCalledWith({ offset: 20 });
     expect(mapMocks.popupSetDOMContent).toHaveBeenCalledTimes(1);
 
     const popupContent = mapMocks.popupSetDOMContent.mock.calls[0][0] as HTMLElement;
-
     expect(popupContent.textContent).toContain('Stop 1');
     expect(popupContent.textContent).toContain('Helsinki Central Railway Station');
     expect(popupContent.textContent).toContain('2 parcels');
@@ -203,7 +215,6 @@ describe('RouteMap', () => {
       center: [24.941, 60.171],
       zoom: 14,
     });
-
     expect(mapMocks.fitBounds).not.toHaveBeenCalled();
   });
 
@@ -211,11 +222,8 @@ describe('RouteMap', () => {
     render(<RouteMap stops={[firstStop, secondStop]} parcels={[]} />);
 
     expect(mapMocks.boundsConstructor).toHaveBeenCalledTimes(1);
-
     expect(mapMocks.boundsExtend).toHaveBeenCalledWith([24.941, 60.171]);
-
     expect(mapMocks.boundsExtend).toHaveBeenCalledWith([24.952, 60.17]);
-
     expect(mapMocks.fitBounds).toHaveBeenCalledWith(expect.anything(), {
       padding: 60,
       maxZoom: 14,
@@ -226,11 +234,8 @@ describe('RouteMap', () => {
     render(<RouteMap stops={[]} parcels={[]} />);
 
     expect(screen.getByText('No stops available for this route.')).toBeInTheDocument();
-
     expect(screen.getByText('0 delivery stops')).toBeInTheDocument();
-
     expect(mapMocks.markerConstructor).not.toHaveBeenCalled();
-
     expect(mapMocks.flyTo).toHaveBeenCalledWith({
       center: [24.9384, 60.1699],
       zoom: 11,
@@ -246,34 +251,76 @@ describe('RouteMap', () => {
     };
 
     render(<RouteMap stops={[firstStop, invalidStop]} parcels={[]} />);
-
     expect(mapMocks.markerConstructor).toHaveBeenCalledTimes(1);
-
     expect(mapMocks.markerSetLngLat).toHaveBeenCalledWith([24.941, 60.171]);
   });
 
   it('updates markers when the selected route changes', () => {
     const { rerender } = render(<RouteMap stops={[firstStop]} parcels={[]} />);
-
     expect(mapMocks.markerConstructor).toHaveBeenCalledTimes(1);
 
-    const anotherRouteStop: DeliveryStop = {
-      ...secondStop,
-      routeId: 'route-2',
-    };
-
+    const anotherRouteStop: DeliveryStop = { ...secondStop, routeId: 'route-2' };
     rerender(<RouteMap stops={[anotherRouteStop]} parcels={[]} />);
 
     expect(mapMocks.markerRemove).toHaveBeenCalledTimes(1);
-
     expect(mapMocks.markerConstructor).toHaveBeenCalledTimes(2);
-
     expect(mapMocks.markerSetLngLat).toHaveBeenLastCalledWith([24.952, 60.17]);
+  });
+
+  it('draws the road geometry as a GeoJSON line layer', () => {
+    const geometry = {
+      type: 'LineString' as const,
+      coordinates: [
+        [24.941, 60.171],
+        [24.945, 60.172],
+        [24.952, 60.17],
+      ],
+    };
+
+    render(<RouteMap stops={[firstStop, secondStop]} parcels={[]} geometry={geometry} />);
+
+    expect(mapMocks.addSource).toHaveBeenCalledWith(
+      'delivery-road-route',
+      expect.objectContaining({
+        type: 'geojson',
+        data: expect.objectContaining({
+          type: 'Feature',
+          geometry: expect.objectContaining({ coordinates: geometry.coordinates }),
+        }),
+      }),
+    );
+    expect(mapMocks.addLayer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'delivery-road-route-line',
+        type: 'line',
+        source: 'delivery-road-route',
+      }),
+    );
+  });
+
+  it('waits until the map style is available before adding road geometry', () => {
+    mapMocks.isStyleLoaded.mockReturnValue(false);
+    const geometry = {
+      type: 'LineString' as const,
+      coordinates: [
+        [24.941, 60.171],
+        [24.952, 60.17],
+      ],
+    };
+
+    render(<RouteMap stops={[firstStop, secondStop]} parcels={[]} geometry={geometry} />);
+    expect(mapMocks.mapOnce).toHaveBeenCalledWith('load', expect.any(Function));
+    expect(mapMocks.mapOnce).toHaveBeenCalledWith('idle', expect.any(Function));
+    expect(mapMocks.addLayer).not.toHaveBeenCalled();
+
+    const loadHandler = mapMocks.mapOnce.mock.calls.find(([event]) => event === 'load')?.[1];
+    expect(loadHandler).toBeTypeOf('function');
+    loadHandler();
+    expect(mapMocks.addLayer).toHaveBeenCalledTimes(1);
   });
 
   it('cleans up map resources when unmounted', () => {
     const { unmount } = render(<RouteMap stops={[firstStop, secondStop]} parcels={[]} />);
-
     unmount();
 
     expect(mapMocks.markerRemove).toHaveBeenCalledTimes(2);

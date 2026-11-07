@@ -22,6 +22,9 @@ vi.mock('./api/logistics-api', () => ({
     createDriver: vi.fn(),
     createVehicle: vi.fn(),
     updateRouteAssignment: vi.fn(),
+
+    // ALT-029: OSRM road geometry endpoint
+    getRouteGeometry: vi.fn(),
   },
 }));
 
@@ -86,6 +89,9 @@ const assignParcelToStop = vi.mocked(logisticsApi.assignParcelToStop);
 const getDrivers = vi.mocked(logisticsApi.getDrivers);
 const getVehicles = vi.mocked(logisticsApi.getVehicles);
 
+// ALT-029: Mock the new route geometry API
+const getRouteGeometry = vi.mocked(logisticsApi.getRouteGeometry);
+
 beforeEach(() => {
   vi.resetAllMocks();
 
@@ -96,6 +102,16 @@ beforeEach(() => {
 
   createParcel.mockResolvedValue(createdParcel);
   assignParcelToStop.mockResolvedValue(undefined);
+
+  // ALT-029: Only one stop exists in the test fixtures,
+  // so a road-following route cannot be calculated.
+  getRouteGeometry.mockResolvedValue({
+    routeId: route.id,
+    status: 'insufficient_stops',
+    geometry: null,
+    distanceMeters: null,
+    durationSeconds: null,
+  });
 
   getDrivers.mockResolvedValue([
     { id: 'driver-1', name: 'Driver One', active: true },
@@ -256,10 +272,13 @@ describe('Dispatcher overview', () => {
     expect(screen.getByText('Assigned Parcels')).toBeInTheDocument();
 
     expect(getRoutes).toHaveBeenCalledWith(day.id, expect.any(AbortSignal));
-
     expect(getParcels).toHaveBeenCalledWith(day.id, expect.any(AbortSignal));
-
     expect(getStops).toHaveBeenCalledWith(route.id, expect.any(AbortSignal));
+
+    // ALT-029: Verify the geometry request.
+    await waitFor(() => {
+      expect(getRouteGeometry).toHaveBeenCalledWith(route.id, expect.any(AbortSignal));
+    });
 
     expect(screen.getByTestId('route-map-mock')).toBeInTheDocument();
   });
@@ -306,7 +325,6 @@ describe('Dispatcher overview', () => {
     getDeliveryDays.mockResolvedValue([day, secondDay]);
 
     getRoutes.mockImplementation(async (dayId) => (dayId === day.id ? [route] : []));
-
     getParcels.mockImplementation(async (dayId) => (dayId === day.id ? [parcel] : []));
 
     render(<App />);

@@ -92,7 +92,8 @@ export function OperationsOverviewPage() {
   const [stopsRequest, setStopsRequest] = useState<RequestState<DeliveryStop[]> | null>(null);
 
   const [stopsRetry, setStopsRetry] = useState(0);
-  const [geometryRequest, setGeometryRequest] = useState<RequestState<RouteGeometryResponse> | null>(null);
+  const [geometryRequest, setGeometryRequest] =
+    useState<RequestState<RouteGeometryResponse> | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -216,7 +217,6 @@ export function OperationsOverviewPage() {
 
   const stops = stopsSuccess ? [...stopsRequest.data].sort((a, b) => a.sequence - b.sequence) : [];
 
-
   // Fetch routing data for the current route only. The request key prevents a
   // previous route's geometry being shown while switching routes or refreshing.
   useEffect(() => {
@@ -260,9 +260,8 @@ export function OperationsOverviewPage() {
   const geometrySuccess = geometryReady && geometryRequest?.status === 'success';
   const routeGeometry = geometrySuccess ? geometryRequest.data : null;
   const geometryLoading = stopsSuccess && !geometryReady;
-  const geometryError = geometryReady && geometryRequest?.status === 'error'
-    ? geometryRequest.error
-    : null;
+  const geometryError =
+    geometryReady && geometryRequest?.status === 'error' ? geometryRequest.error : null;
 
   const selectedDay = days.find((day) => day.id === currentDayId);
 

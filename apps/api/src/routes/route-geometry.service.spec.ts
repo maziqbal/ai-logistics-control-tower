@@ -53,7 +53,8 @@ describe('RouteGeometryService', () => {
 
     service = new RouteGeometryService(stopsService);
 
-    jest.spyOn(globalThis, 'fetch').mockImplementation(fetchMock);  });
+    jest.spyOn(globalThis, 'fetch').mockImplementation(fetchMock);
+  });
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -81,9 +82,7 @@ describe('RouteGeometryService', () => {
 
     const requestedUrl = String(fetchMock.mock.calls[0][0]);
 
-    expect(requestedUrl).toContain(
-      '24.9414,60.1719;24.9525,60.1705',
-    );
+    expect(requestedUrl).toContain('24.9414,60.1719;24.9525,60.1705');
     expect(requestedUrl).toContain('geometries=geojson');
   });
 
@@ -113,9 +112,7 @@ describe('RouteGeometryService', () => {
   });
 
   it('preserves the route-not-found exception', async () => {
-    findByRoute.mockRejectedValue(
-      new NotFoundException('Route not found'),
-    );
+    findByRoute.mockRejectedValue(new NotFoundException('Route not found'));
 
     await expect(service.findByRoute(routeId)).rejects.toThrow(
       NotFoundException,

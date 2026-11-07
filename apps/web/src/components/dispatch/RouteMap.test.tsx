@@ -270,7 +270,11 @@ describe('RouteMap', () => {
   it('draws the road geometry as a GeoJSON line layer', () => {
     const geometry = {
       type: 'LineString' as const,
-      coordinates: [[24.941, 60.171], [24.945, 60.172], [24.952, 60.17]],
+      coordinates: [
+        [24.941, 60.171],
+        [24.945, 60.172],
+        [24.952, 60.17],
+      ],
     };
 
     render(<RouteMap stops={[firstStop, secondStop]} parcels={[]} geometry={geometry} />);
@@ -298,7 +302,10 @@ describe('RouteMap', () => {
     mapMocks.isStyleLoaded.mockReturnValue(false);
     const geometry = {
       type: 'LineString' as const,
-      coordinates: [[24.941, 60.171], [24.952, 60.17]],
+      coordinates: [
+        [24.941, 60.171],
+        [24.952, 60.17],
+      ],
     };
 
     render(<RouteMap stops={[firstStop, secondStop]} parcels={[]} geometry={geometry} />);

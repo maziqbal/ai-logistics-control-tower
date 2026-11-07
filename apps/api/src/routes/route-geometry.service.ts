@@ -1,7 +1,4 @@
-import {
-  BadGatewayException,
-  Injectable,
-} from '@nestjs/common';
+import { BadGatewayException, Injectable } from '@nestjs/common';
 
 import { StopsService } from '../stops/stops.service';
 
@@ -43,10 +40,7 @@ export class RouteGeometryService {
       .map((stop) => `${stop.longitude},${stop.latitude}`)
       .join(';');
 
-    const url = new URL(
-      `/route/v1/driving/${coordinates}`,
-      this.osrmBaseUrl,
-    );
+    const url = new URL(`/route/v1/driving/${coordinates}`, this.osrmBaseUrl);
 
     url.searchParams.set('overview', 'full');
     url.searchParams.set('geometries', 'geojson');
@@ -58,15 +52,11 @@ export class RouteGeometryService {
         signal: AbortSignal.timeout(10000),
       });
     } catch {
-      throw new BadGatewayException(
-        'Routing service is unavailable',
-      );
+      throw new BadGatewayException('Routing service is unavailable');
     }
 
     if (!response.ok) {
-      throw new BadGatewayException(
-        'Routing service returned an error',
-      );
+      throw new BadGatewayException('Routing service returned an error');
     }
 
     let data: OsrmResponse;
@@ -74,9 +64,7 @@ export class RouteGeometryService {
     try {
       data = (await response.json()) as OsrmResponse;
     } catch {
-      throw new BadGatewayException(
-        'Routing service returned invalid JSON',
-      );
+      throw new BadGatewayException('Routing service returned invalid JSON');
     }
 
     if (data.code === 'NoRoute') {

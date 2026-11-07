@@ -1,4 +1,3 @@
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -278,10 +277,7 @@ describe('Dispatcher overview', () => {
 
     // ALT-029: Verify the geometry request.
     await waitFor(() => {
-      expect(getRouteGeometry).toHaveBeenCalledWith(
-        route.id,
-        expect.any(AbortSignal),
-      );
+      expect(getRouteGeometry).toHaveBeenCalledWith(route.id, expect.any(AbortSignal));
     });
 
     expect(screen.getByTestId('route-map-mock')).toBeInTheDocument();

@@ -214,8 +214,8 @@ export const logisticsApi = {
   },
 
   getRouteGeometry: (routeId: string, signal?: AbortSignal) =>
-  getJson<RouteGeometryResponse>(
-    `/api/v1/routes/${encodeURIComponent(routeId)}/geometry`,
-    signal,
-  ),
+    getJson<RouteGeometryResponse>(
+      `/api/v1/routes/${encodeURIComponent(routeId)}/geometry`,
+      signal,
+    ),
 };

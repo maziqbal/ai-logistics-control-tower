@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-} from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
 import {
   ApiBadGatewayResponse,
   ApiBadRequestResponse,
@@ -18,9 +13,7 @@ import { RouteGeometryService } from './route-geometry.service';
 @ApiTags('Routes')
 @Controller('api/v1/routes/:routeId/geometry')
 export class RouteGeometryController {
-  constructor(
-    private readonly routeGeometryService: RouteGeometryService,
-  ) {}
+  constructor(private readonly routeGeometryService: RouteGeometryService) {}
 
   @Get()
   @ApiOperation({
@@ -38,9 +31,7 @@ export class RouteGeometryController {
   @ApiBadGatewayResponse({
     description: 'OSRM routing service failed',
   })
-  findByRoute(
-    @Param('routeId', new ParseUUIDPipe()) routeId: string,
-  ) {
+  findByRoute(@Param('routeId', new ParseUUIDPipe()) routeId: string) {
     return this.routeGeometryService.findByRoute(routeId);
   }
 }

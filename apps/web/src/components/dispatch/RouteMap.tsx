@@ -43,17 +43,25 @@ const MAP_STYLE = {
 };
 
 function validPosition(lon: number, lat: number): boolean {
-  return Number.isFinite(lon) && Number.isFinite(lat) &&
-    lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90;
+  return (
+    Number.isFinite(lon) &&
+    Number.isFinite(lat) &&
+    lon >= -180 &&
+    lon <= 180 &&
+    lat >= -90 &&
+    lat <= 90
+  );
 }
 
 function isValidGeometry(geometry: RouteGeometry | null | undefined): geometry is RouteGeometry {
-  return geometry?.type === 'LineString' &&
+  return (
+    geometry?.type === 'LineString' &&
     Array.isArray(geometry.coordinates) &&
     geometry.coordinates.length >= 2 &&
-    geometry.coordinates.every((point) =>
-      Array.isArray(point) && point.length >= 2 && validPosition(point[0], point[1]),
-    );
+    geometry.coordinates.every(
+      (point) => Array.isArray(point) && point.length >= 2 && validPosition(point[0], point[1]),
+    )
+  );
 }
 
 export function RouteMap({
@@ -216,10 +224,18 @@ export function RouteMap({
       </div>
 
       <div className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
-        <p>{stops.length} delivery stop{stops.length === 1 ? '' : 's'}</p>
-        {geometryLoading && <p role="status" className="mt-1">Calculating driving route...</p>}
+        <p>
+          {stops.length} delivery stop{stops.length === 1 ? '' : 's'}
+        </p>
+        {geometryLoading && (
+          <p role="status" className="mt-1">
+            Calculating driving route...
+          </p>
+        )}
         {geometryError && (
-          <p role="alert" className="mt-1 text-red-700">Unable to load driving route: {geometryError}</p>
+          <p role="alert" className="mt-1 text-red-700">
+            Unable to load driving route: {geometryError}
+          </p>
         )}
         {!geometryLoading && !geometryError && routeStatus === 'insufficient_stops' && (
           <p className="mt-1">Add at least two stops to display a driving route.</p>
@@ -227,9 +243,15 @@ export function RouteMap({
         {!geometryLoading && !geometryError && routeStatus === 'no_route' && (
           <p className="mt-1">No drivable route found for these stops.</p>
         )}
-        {!geometryLoading && !geometryError && routeStatus === 'ready' && distanceLabel && durationLabel && (
-          <p className="mt-1">Driving route: {distanceLabel} · approx. {durationLabel} (no live traffic)</p>
-        )}
+        {!geometryLoading &&
+          !geometryError &&
+          routeStatus === 'ready' &&
+          distanceLabel &&
+          durationLabel && (
+            <p className="mt-1">
+              Driving route: {distanceLabel} · approx. {durationLabel} (no live traffic)
+            </p>
+          )}
       </div>
     </section>
   );

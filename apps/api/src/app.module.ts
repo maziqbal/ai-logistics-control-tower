@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+
 import { StopsModule } from './stops/stops.module';
 import { AppController } from './app.controller';
 import { DatabaseModule } from './db/database.module';
@@ -7,6 +8,7 @@ import { DriversModule } from './drivers/drivers.module';
 import { RoutesModule } from './routes/routes.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { ParcelsModule } from './parcels/parcels.module';
+import { SimulationModule } from './simulation/simulation.module';
 
 @Module({
   imports: [
@@ -17,6 +19,7 @@ import { ParcelsModule } from './parcels/parcels.module';
     RoutesModule,
     StopsModule,
     ParcelsModule,
+    SimulationModule,
   ],
   controllers: [AppController],
 })

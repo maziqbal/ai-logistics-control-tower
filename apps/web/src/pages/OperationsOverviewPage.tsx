@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLiveSimulation } from '../hooks/useLiveSimulation';
 import {
   Activity,
   AlertCircle,
@@ -92,6 +93,7 @@ export function OperationsOverviewPage() {
   const [stopsRequest, setStopsRequest] = useState<RequestState<DeliveryStop[]> | null>(null);
 
   const [stopsRetry, setStopsRetry] = useState(0);
+
   const [geometryRequest, setGeometryRequest] =
     useState<RequestState<RouteGeometryResponse> | null>(null);
 
@@ -178,6 +180,14 @@ export function OperationsOverviewPage() {
       ? selectedRouteId
       : (routes[0]?.id ?? '');
 
+  // ALT-033: Subscribe to live GPS updates for the selected route.
+  // The hook also retrieves the current simulation snapshot.
+  const {
+    snapshot: liveVehicle,
+    connectionStatus: liveConnectionStatus,
+    error: liveSimulationError,
+  } = useLiveSimulation(operationsSuccess ? currentRouteId : '');
+
   useEffect(() => {
     if (!currentRouteId || !operationsSuccess) return;
 
@@ -217,8 +227,9 @@ export function OperationsOverviewPage() {
 
   const stops = stopsSuccess ? [...stopsRequest.data].sort((a, b) => a.sequence - b.sequence) : [];
 
-  // Fetch routing data for the current route only. The request key prevents a
-  // previous route's geometry being shown while switching routes or refreshing.
+  // Fetch routing data for the current route only.
+  // The request key prevents stale geometry appearing
+  // when switching routes or refreshing.
   useEffect(() => {
     if (!currentRouteId || !stopsSuccess) return;
 
@@ -257,9 +268,13 @@ export function OperationsOverviewPage() {
   }, [currentRouteId, stopsSuccess, stopsKey]);
 
   const geometryReady = geometryRequest?.key === stopsKey;
+
   const geometrySuccess = geometryReady && geometryRequest?.status === 'success';
+
   const routeGeometry = geometrySuccess ? geometryRequest.data : null;
+
   const geometryLoading = stopsSuccess && !geometryReady;
+
   const geometryError =
     geometryReady && geometryRequest?.status === 'error' ? geometryRequest.error : null;
 
@@ -614,6 +629,9 @@ export function OperationsOverviewPage() {
               routeStatus={routeGeometry?.status ?? null}
               geometryLoading={geometryLoading}
               geometryError={geometryError}
+              vehicle={liveVehicle}
+              liveConnectionStatus={liveConnectionStatus}
+              liveSimulationError={liveSimulationError}
             />
           )}
 

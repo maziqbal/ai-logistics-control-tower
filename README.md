@@ -324,6 +324,55 @@ The backend includes tests covering GPS interpolation, simulation lifecycle mana
 
 Automated tests are complemented by manual checks against a running PostgreSQL, OSRM, and NestJS development environment.
 
+
+## Live Vehicle Tracking (ALT-033)
+
+The Operations Overview dashboard supports real-time vehicle tracking
+on an interactive MapLibre map.
+
+### Implemented Features
+
+- Displays a live vehicle marker on the selected delivery route.
+- Receives GPS updates through Socket.IO.
+- Smoothly animates the vehicle between GPS positions.
+- Shows vehicle speed, simulation status, distance, and progress.
+- Supports running, paused, stopped, and completed states.
+- Reconnects and retrieves the latest GPS position.
+- Cleans up subscriptions when switching routes.
+- Preserves OSRM road geometry and numbered delivery stops.
+
+### Running the Demo
+
+1. Start PostgreSQL/PostGIS and OSRM.
+2. Start the NestJS API:
+
+   `pnpm --filter api start:dev`
+
+3. Start the React frontend:
+
+   `pnpm --filter web dev`
+
+4. Open the Operations Overview dashboard and select a route.
+5. Start a GPS simulation using the REST API.
+
+Example API request:
+
+```http
+POST /api/v1/simulations/{routeId}/start
+Content-Type: application/json
+
+{
+  "speedMetersPerSecond": 5
+}
+```
+
+The truck marker moves automatically while the simulation is running.
+
+**Current limitation:** Vehicle animation interpolates between
+consecutive GPS updates rather than following every intermediate
+road segment.
+
+
 ## Current Limitations
 
 - Simulation sessions are stored in application memory and are lost when the API restarts.

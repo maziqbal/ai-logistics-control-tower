@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
-import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
+import type { Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
@@ -9,6 +9,7 @@ import type { DeliveryStop, Parcel, RouteGeometry } from '../../api/logistics-ap
 
 import type { SimulationSnapshot } from '../../hooks/useLiveSimulation';
 import { useDeliveryStopMarkers } from './useDeliveryStopMarkers';
+import { useRoadGeometry } from './useRoadGeometry';
 
 type RouteMapProps = {
   stops: DeliveryStop[];
@@ -28,9 +29,6 @@ type Position = [longitude: number, latitude: number];
 
 const DEFAULT_CENTER: Position = [24.9384, 60.1699];
 const DEFAULT_ZOOM = 11;
-
-const ROAD_SOURCE_ID = 'delivery-road-route';
-const ROAD_LAYER_ID = 'delivery-road-route-line';
 
 const ANIMATION_DURATION_MS = 900;
 const MAX_ANIMATION_DISTANCE_METERS = 100;
@@ -64,17 +62,6 @@ function validPosition(lon: number, lat: number): boolean {
     lon <= 180 &&
     lat >= -90 &&
     lat <= 90
-  );
-}
-
-function isValidGeometry(geometry: RouteGeometry | null | undefined): geometry is RouteGeometry {
-  return (
-    geometry?.type === 'LineString' &&
-    Array.isArray(geometry.coordinates) &&
-    geometry.coordinates.length >= 2 &&
-    geometry.coordinates.every(
-      (point) => Array.isArray(point) && point.length >= 2 && validPosition(point[0], point[1]),
-    )
   );
 }
 
@@ -127,9 +114,7 @@ export function RouteMap({
   const mapRef = useRef<MapLibreMap | null>(null);
 
   const vehicleMarkerRef = useRef<maplibregl.Marker | null>(null);
-
   const displayedPositionRef = useRef<Position | null>(null);
-
   const animationFrameRef = useRef<number | null>(null);
 
   const stopAnimation = () => {
@@ -168,79 +153,10 @@ export function RouteMap({
     };
   }, []);
 
-  // OSRM road geometry overlay.
-  useEffect(() => {
-    const map = mapRef.current;
+  // OSRM road geometry overlay is managed by a dedicated hook.
+  useRoadGeometry(mapRef, geometry);
 
-    if (!map || typeof map.isStyleLoaded !== 'function') {
-      return;
-    }
-
-    const updateRoad = () => {
-      if (!isValidGeometry(geometry)) {
-        if (map.getLayer(ROAD_LAYER_ID)) {
-          map.removeLayer(ROAD_LAYER_ID);
-        }
-
-        if (map.getSource(ROAD_SOURCE_ID)) {
-          map.removeSource(ROAD_SOURCE_ID);
-        }
-
-        return;
-      }
-
-      const data = {
-        type: 'Feature' as const,
-        properties: {},
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: geometry.coordinates,
-        },
-      };
-
-      const source = map.getSource(ROAD_SOURCE_ID) as GeoJSONSource | undefined;
-
-      if (source) {
-        source.setData(data);
-      } else {
-        map.addSource(ROAD_SOURCE_ID, {
-          type: 'geojson',
-          data,
-        });
-      }
-
-      if (!map.getLayer(ROAD_LAYER_ID)) {
-        map.addLayer({
-          id: ROAD_LAYER_ID,
-          type: 'line',
-          source: ROAD_SOURCE_ID,
-          paint: {
-            'line-color': '#0f766e',
-            'line-width': 5,
-            'line-opacity': 0.9,
-          },
-          layout: {
-            'line-cap': 'round',
-            'line-join': 'round',
-          },
-        });
-      }
-    };
-
-    if (map.isStyleLoaded()) {
-      updateRoad();
-    } else {
-      map.once('load', updateRoad);
-      map.once('idle', updateRoad);
-    }
-
-    return () => {
-      map.off('load', updateRoad);
-      map.off('idle', updateRoad);
-    };
-  }, [geometry]);
-
-  // Existing stop markers and map framing are managed by a dedicated hook.
+  // Delivery-stop markers and map framing use an existing hook.
   useDeliveryStopMarkers(mapRef, stops, parcels);
 
   // Smooth vehicle movement between incoming GPS positions.
@@ -289,9 +205,7 @@ export function RouteMap({
 
     const distance = distanceBetweenMeters(startPosition, destination);
 
-    // Paused, stopped, or completed simulations should show
-    // the authoritative GPS position without further animation.
-    // Large coordinate jumps also snap immediately.
+    // Non-running simulations and large jumps snap immediately.
     if (
       vehicle.status !== 'running' ||
       distance > MAX_ANIMATION_DISTANCE_METERS ||
@@ -313,8 +227,6 @@ export function RouteMap({
 
       const progress = Math.min(1, Math.max(0, elapsed / ANIMATION_DURATION_MS));
 
-      // Ease out gently as the marker approaches its latest
-      // authoritative GPS position.
       const easedProgress = 1 - (1 - progress) ** 2;
 
       const position = interpolatePosition(startPosition, destination, easedProgress);
@@ -430,8 +342,8 @@ export function RouteMap({
             </div>
 
             <p>
-              Distance traveled: {(vehicle.distanceTraveledMeters / 1000).toFixed(2)} km
-              {' · '}
+              Distance traveled: {(vehicle.distanceTraveledMeters / 1000).toFixed(2)}
+              {' km · '}
               Progress: {vehicleProgress.toFixed(1)}%
             </p>
 

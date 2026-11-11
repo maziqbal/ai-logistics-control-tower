@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLiveSimulation } from '../hooks/useLiveSimulation';
 import { useDeliveryDays } from '../hooks/useDeliveryDays';
 import { useOperationsData } from '../hooks/useOperationsData';
 import { useRouteStops } from '../hooks/useRouteStops';
+import { useRouteGeometry } from '../hooks/useRouteGeometry';
 import { AlertCircle, CalendarDays, ChevronDown, ClipboardList, RefreshCw } from 'lucide-react';
 
 import { ParcelAssignmentPanel } from '../components/dispatch/ParcelAssignmentPanel';
@@ -12,22 +13,7 @@ import { RouteMap } from '../components/dispatch/RouteMap';
 import { OperationsStats } from '../components/dispatch/OperationsStats';
 import { DeliveryRoutesPanel } from '../components/dispatch/DeliveryRoutesPanel';
 import { RouteStopsPanel } from '../components/dispatch/RouteStopsPanel';
-import {
-  logisticsApi,
-  type CreateParcelInput,
-  type RouteGeometryResponse,
-} from '../api/logistics-api';
-
-type RequestState<T> = {
-  key: string;
-  status: 'success' | 'error';
-  data: T;
-  error: string;
-};
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'An unexpected error occurred.';
-}
+import { logisticsApi, type CreateParcelInput } from '../api/logistics-api';
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('en-GB', {
@@ -68,9 +54,6 @@ export function OperationsOverviewPage() {
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
 
-  const [geometryRequest, setGeometryRequest] =
-    useState<RequestState<RouteGeometryResponse> | null>(null);
-
   const currentDayId = selectedDayId === null ? (days[0]?.id ?? '') : selectedDayId;
 
   // ALT-034: Routes and parcels fetching now lives in a dedicated hook.
@@ -103,56 +86,12 @@ export function OperationsOverviewPage() {
     operationsSuccess,
   );
 
-  // Fetch routing data for the current route only.
-  // The request key prevents stale geometry appearing
-  // when switching routes or refreshing.
-  useEffect(() => {
-    if (!currentRouteId || !stopsSuccess) return;
-
-    const controller = new AbortController();
-
-    logisticsApi
-      .getRouteGeometry(currentRouteId, controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setGeometryRequest({
-            key: stopsKey,
-            status: 'success',
-            data,
-            error: '',
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setGeometryRequest({
-            key: stopsKey,
-            status: 'error',
-            data: {
-              routeId: currentRouteId,
-              status: 'no_route',
-              geometry: null,
-              distanceMeters: null,
-              durationSeconds: null,
-            },
-            error: getErrorMessage(error),
-          });
-        }
-      });
-
-    return () => controller.abort();
-  }, [currentRouteId, stopsSuccess, stopsKey]);
-
-  const geometryReady = geometryRequest?.key === stopsKey;
-
-  const geometrySuccess = geometryReady && geometryRequest?.status === 'success';
-
-  const routeGeometry = geometrySuccess ? geometryRequest.data : null;
-
-  const geometryLoading = stopsSuccess && !geometryReady;
-
-  const geometryError =
-    geometryReady && geometryRequest?.status === 'error' ? geometryRequest.error : null;
+  // ALT-034 Step 6B: OSRM geometry fetching is isolated in its own hook.
+  const { routeGeometry, geometryLoading, geometryError } = useRouteGeometry(
+    currentRouteId,
+    stopsSuccess,
+    stopsKey,
+  );
 
   const selectedDay = days.find((day) => day.id === currentDayId);
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLiveSimulation } from '../hooks/useLiveSimulation';
+import { useDeliveryDays } from '../hooks/useDeliveryDays';
 import { AlertCircle, CalendarDays, ChevronDown, ClipboardList, RefreshCw } from 'lucide-react';
 
 import { ParcelAssignmentPanel } from '../components/dispatch/ParcelAssignmentPanel';
@@ -12,7 +13,6 @@ import { RouteStopsPanel } from '../components/dispatch/RouteStopsPanel';
 import {
   logisticsApi,
   type CreateParcelInput,
-  type DeliveryDay,
   type DeliveryRoute,
   type DeliveryStop,
   type Parcel,
@@ -68,9 +68,8 @@ function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => voi
 }
 
 export function OperationsOverviewPage() {
-  const [daysRequest, setDaysRequest] = useState<RequestState<DeliveryDay[]> | null>(null);
-
-  const [daysRetry, setDaysRetry] = useState(0);
+  // ALT-034: Delivery-day fetching is isolated; selection stays in this page.
+  const { daysRequest, daysReady, days, setDaysRetry } = useDeliveryDays();
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
 
   const [operationsRequest, setOperationsRequest] = useState<RequestState<OperationsData> | null>(
@@ -87,39 +86,6 @@ export function OperationsOverviewPage() {
 
   const [geometryRequest, setGeometryRequest] =
     useState<RequestState<RouteGeometryResponse> | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    logisticsApi
-      .getDeliveryDays(controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setDaysRequest({
-            key: String(daysRetry),
-            status: 'success',
-            data,
-            error: '',
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setDaysRequest({
-            key: String(daysRetry),
-            status: 'error',
-            data: [],
-            error: getErrorMessage(error),
-          });
-        }
-      });
-
-    return () => controller.abort();
-  }, [daysRetry]);
-
-  const daysReady = daysRequest?.key === String(daysRetry);
-
-  const days = daysReady && daysRequest?.status === 'success' ? daysRequest.data : [];
 
   const currentDayId = selectedDayId === null ? (days[0]?.id ?? '') : selectedDayId;
 

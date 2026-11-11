@@ -8,6 +8,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import type { DeliveryStop, Parcel, RouteGeometry } from '../../api/logistics-api';
 
 import type { SimulationSnapshot } from '../../hooks/useLiveSimulation';
+import { useDeliveryStopMarkers } from './useDeliveryStopMarkers';
 
 type RouteMapProps = {
   stops: DeliveryStop[];
@@ -239,83 +240,8 @@ export function RouteMap({
     };
   }, [geometry]);
 
-  // Existing numbered delivery stop markers.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const markers: maplibregl.Marker[] = [];
-
-    const validStops = stops.filter((stop) => validPosition(stop.longitude, stop.latitude));
-
-    for (const stop of validStops) {
-      const markerElement = document.createElement('div');
-
-      markerElement.className =
-        'flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-teal-600 text-xs font-bold text-white shadow-md';
-
-      markerElement.textContent = String(stop.sequence);
-
-      const parcelCount = parcels.filter((parcel) => parcel.stopId === stop.id).length;
-
-      const popupContent = document.createElement('div');
-
-      const heading = document.createElement('strong');
-      heading.textContent = `Stop ${stop.sequence}`;
-
-      const location = document.createElement('p');
-      location.textContent = stop.locationKey;
-
-      const count = document.createElement('p');
-      count.textContent = `${parcelCount} parcel${parcelCount === 1 ? '' : 's'}`;
-
-      popupContent.append(heading, location, count);
-
-      const popup = new maplibregl.Popup({
-        offset: 20,
-      }).setDOMContent(popupContent);
-
-      const marker = new maplibregl.Marker({
-        element: markerElement,
-      })
-        .setLngLat([stop.longitude, stop.latitude])
-        .setPopup(popup)
-        .addTo(map);
-
-      markers.push(marker);
-    }
-
-    if (validStops.length === 1) {
-      const stop = validStops[0];
-
-      map.flyTo({
-        center: [stop.longitude, stop.latitude],
-        zoom: 14,
-      });
-    } else if (validStops.length > 1) {
-      const bounds = new maplibregl.LngLatBounds();
-
-      for (const stop of validStops) {
-        bounds.extend([stop.longitude, stop.latitude]);
-      }
-
-      map.fitBounds(bounds, {
-        padding: 60,
-        maxZoom: 14,
-      });
-    } else {
-      map.flyTo({
-        center: DEFAULT_CENTER,
-        zoom: DEFAULT_ZOOM,
-      });
-    }
-
-    return () => {
-      for (const marker of markers) {
-        marker.remove();
-      }
-    };
-  }, [stops, parcels]);
+  // Existing stop markers and map framing are managed by a dedicated hook.
+  useDeliveryStopMarkers(mapRef, stops, parcels);
 
   // Smooth vehicle movement between incoming GPS positions.
   useEffect(() => {

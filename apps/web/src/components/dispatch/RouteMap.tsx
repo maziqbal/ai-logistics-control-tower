@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
-import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
+import type { Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
@@ -8,6 +8,9 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import type { DeliveryStop, Parcel, RouteGeometry } from '../../api/logistics-api';
 
 import type { SimulationSnapshot } from '../../hooks/useLiveSimulation';
+import { useDeliveryStopMarkers } from './useDeliveryStopMarkers';
+import { useRoadGeometry } from './useRoadGeometry';
+import { useVehicleAnimation } from './useVehicleAnimation';
 
 type RouteMapProps = {
   stops: DeliveryStop[];
@@ -27,12 +30,6 @@ type Position = [longitude: number, latitude: number];
 
 const DEFAULT_CENTER: Position = [24.9384, 60.1699];
 const DEFAULT_ZOOM = 11;
-
-const ROAD_SOURCE_ID = 'delivery-road-route';
-const ROAD_LAYER_ID = 'delivery-road-route-line';
-
-const ANIMATION_DURATION_MS = 900;
-const MAX_ANIMATION_DISTANCE_METERS = 100;
 
 maplibregl.setWorkerUrl(workerUrl);
 
@@ -55,60 +52,6 @@ const MAP_STYLE = {
   ],
 };
 
-function validPosition(lon: number, lat: number): boolean {
-  return (
-    Number.isFinite(lon) &&
-    Number.isFinite(lat) &&
-    lon >= -180 &&
-    lon <= 180 &&
-    lat >= -90 &&
-    lat <= 90
-  );
-}
-
-function isValidGeometry(geometry: RouteGeometry | null | undefined): geometry is RouteGeometry {
-  return (
-    geometry?.type === 'LineString' &&
-    Array.isArray(geometry.coordinates) &&
-    geometry.coordinates.length >= 2 &&
-    geometry.coordinates.every(
-      (point) => Array.isArray(point) && point.length >= 2 && validPosition(point[0], point[1]),
-    )
-  );
-}
-
-function interpolatePosition(from: Position, to: Position, progress: number): Position {
-  return [from[0] + (to[0] - from[0]) * progress, from[1] + (to[1] - from[1]) * progress];
-}
-
-function distanceBetweenMeters(from: Position, to: Position): number {
-  const toRadians = Math.PI / 180;
-  const latitude1 = from[1] * toRadians;
-  const latitude2 = to[1] * toRadians;
-
-  const latitudeDelta = (to[1] - from[1]) * toRadians;
-  const longitudeDelta = (to[0] - from[0]) * toRadians;
-
-  const a =
-    Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(latitude1) * Math.cos(latitude2) * Math.sin(longitudeDelta / 2) ** 2;
-
-  return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(a)));
-}
-
-function createVehicleMarkerElement(): HTMLDivElement {
-  const element = document.createElement('div');
-
-  element.className =
-    'flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#17263d] text-xl text-white shadow-lg';
-
-  element.textContent = '🚚';
-  element.setAttribute('role', 'img');
-  element.setAttribute('aria-label', 'Live delivery vehicle');
-
-  return element;
-}
-
 export function RouteMap({
   stops,
   parcels,
@@ -126,18 +69,10 @@ export function RouteMap({
   const mapRef = useRef<MapLibreMap | null>(null);
 
   const vehicleMarkerRef = useRef<maplibregl.Marker | null>(null);
-
   const displayedPositionRef = useRef<Position | null>(null);
-
   const animationFrameRef = useRef<number | null>(null);
 
-  const stopAnimation = () => {
-    if (animationFrameRef.current !== null) {
-      window.cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-  };
-
+  // Initialize MapLibre exactly once.
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -152,6 +87,7 @@ export function RouteMap({
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
+    // Keep final resource cleanup owned by RouteMap.
     return () => {
       if (animationFrameRef.current !== null) {
         window.cancelAnimationFrame(animationFrameRef.current);
@@ -167,245 +103,18 @@ export function RouteMap({
     };
   }, []);
 
-  // OSRM road geometry overlay.
-  useEffect(() => {
-    const map = mapRef.current;
+  // OSRM road overlay.
+  useRoadGeometry(mapRef, geometry);
 
-    if (!map || typeof map.isStyleLoaded !== 'function') {
-      return;
-    }
+  // Numbered stop markers, popups, and map framing.
+  useDeliveryStopMarkers(mapRef, stops, parcels);
 
-    const updateRoad = () => {
-      if (!isValidGeometry(geometry)) {
-        if (map.getLayer(ROAD_LAYER_ID)) {
-          map.removeLayer(ROAD_LAYER_ID);
-        }
-
-        if (map.getSource(ROAD_SOURCE_ID)) {
-          map.removeSource(ROAD_SOURCE_ID);
-        }
-
-        return;
-      }
-
-      const data = {
-        type: 'Feature' as const,
-        properties: {},
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: geometry.coordinates,
-        },
-      };
-
-      const source = map.getSource(ROAD_SOURCE_ID) as GeoJSONSource | undefined;
-
-      if (source) {
-        source.setData(data);
-      } else {
-        map.addSource(ROAD_SOURCE_ID, {
-          type: 'geojson',
-          data,
-        });
-      }
-
-      if (!map.getLayer(ROAD_LAYER_ID)) {
-        map.addLayer({
-          id: ROAD_LAYER_ID,
-          type: 'line',
-          source: ROAD_SOURCE_ID,
-          paint: {
-            'line-color': '#0f766e',
-            'line-width': 5,
-            'line-opacity': 0.9,
-          },
-          layout: {
-            'line-cap': 'round',
-            'line-join': 'round',
-          },
-        });
-      }
-    };
-
-    if (map.isStyleLoaded()) {
-      updateRoad();
-    } else {
-      map.once('load', updateRoad);
-      map.once('idle', updateRoad);
-    }
-
-    return () => {
-      map.off('load', updateRoad);
-      map.off('idle', updateRoad);
-    };
-  }, [geometry]);
-
-  // Existing numbered delivery stop markers.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const markers: maplibregl.Marker[] = [];
-
-    const validStops = stops.filter((stop) => validPosition(stop.longitude, stop.latitude));
-
-    for (const stop of validStops) {
-      const markerElement = document.createElement('div');
-
-      markerElement.className =
-        'flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-teal-600 text-xs font-bold text-white shadow-md';
-
-      markerElement.textContent = String(stop.sequence);
-
-      const parcelCount = parcels.filter((parcel) => parcel.stopId === stop.id).length;
-
-      const popupContent = document.createElement('div');
-
-      const heading = document.createElement('strong');
-      heading.textContent = `Stop ${stop.sequence}`;
-
-      const location = document.createElement('p');
-      location.textContent = stop.locationKey;
-
-      const count = document.createElement('p');
-      count.textContent = `${parcelCount} parcel${parcelCount === 1 ? '' : 's'}`;
-
-      popupContent.append(heading, location, count);
-
-      const popup = new maplibregl.Popup({
-        offset: 20,
-      }).setDOMContent(popupContent);
-
-      const marker = new maplibregl.Marker({
-        element: markerElement,
-      })
-        .setLngLat([stop.longitude, stop.latitude])
-        .setPopup(popup)
-        .addTo(map);
-
-      markers.push(marker);
-    }
-
-    if (validStops.length === 1) {
-      const stop = validStops[0];
-
-      map.flyTo({
-        center: [stop.longitude, stop.latitude],
-        zoom: 14,
-      });
-    } else if (validStops.length > 1) {
-      const bounds = new maplibregl.LngLatBounds();
-
-      for (const stop of validStops) {
-        bounds.extend([stop.longitude, stop.latitude]);
-      }
-
-      map.fitBounds(bounds, {
-        padding: 60,
-        maxZoom: 14,
-      });
-    } else {
-      map.flyTo({
-        center: DEFAULT_CENTER,
-        zoom: DEFAULT_ZOOM,
-      });
-    }
-
-    return () => {
-      for (const marker of markers) {
-        marker.remove();
-      }
-    };
-  }, [stops, parcels]);
-
-  // Smooth vehicle movement between incoming GPS positions.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    if (!vehicle || !validPosition(vehicle.longitude, vehicle.latitude)) {
-      stopAnimation();
-
-      vehicleMarkerRef.current?.remove();
-      vehicleMarkerRef.current = null;
-      displayedPositionRef.current = null;
-      return;
-    }
-
-    const destination: Position = [vehicle.longitude, vehicle.latitude];
-
-    if (!vehicleMarkerRef.current) {
-      const markerElement = createVehicleMarkerElement();
-
-      vehicleMarkerRef.current = new maplibregl.Marker({
-        element: markerElement,
-        anchor: 'center',
-      })
-        .setLngLat(destination)
-        .addTo(map);
-
-      displayedPositionRef.current = destination;
-      return;
-    }
-
-    stopAnimation();
-
-    const startPosition = displayedPositionRef.current;
-
-    const moveImmediately = () => {
-      vehicleMarkerRef.current?.setLngLat(destination);
-      displayedPositionRef.current = destination;
-    };
-
-    if (!startPosition) {
-      moveImmediately();
-      return;
-    }
-
-    const distance = distanceBetweenMeters(startPosition, destination);
-
-    // Paused, stopped, or completed simulations should show
-    // the authoritative GPS position without further animation.
-    // Large coordinate jumps also snap immediately.
-    if (
-      vehicle.status !== 'running' ||
-      distance > MAX_ANIMATION_DISTANCE_METERS ||
-      distance < 0.01 ||
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    ) {
-      moveImmediately();
-      return;
-    }
-
-    let startTime: number | null = null;
-
-    const animate = (timestamp: number) => {
-      if (startTime === null) {
-        startTime = timestamp;
-      }
-
-      const elapsed = timestamp - startTime;
-
-      const progress = Math.min(1, Math.max(0, elapsed / ANIMATION_DURATION_MS));
-
-      // Ease out gently as the marker approaches its latest
-      // authoritative GPS position.
-      const easedProgress = 1 - (1 - progress) ** 2;
-
-      const position = interpolatePosition(startPosition, destination, easedProgress);
-
-      vehicleMarkerRef.current?.setLngLat(position);
-      displayedPositionRef.current = position;
-
-      if (progress < 1) {
-        animationFrameRef.current = window.requestAnimationFrame(animate);
-      } else {
-        animationFrameRef.current = null;
-        displayedPositionRef.current = destination;
-      }
-    };
-
-    animationFrameRef.current = window.requestAnimationFrame(animate);
-  }, [vehicle]);
+  // Smooth animation of the live GPS vehicle.
+  useVehicleAnimation(mapRef, vehicle, {
+    markerRef: vehicleMarkerRef,
+    positionRef: displayedPositionRef,
+    frameRef: animationFrameRef,
+  });
 
   const distanceLabel = distanceMeters === null ? null : `${(distanceMeters / 1000).toFixed(2)} km`;
 
@@ -504,8 +213,8 @@ export function RouteMap({
             </div>
 
             <p>
-              Distance traveled: {(vehicle.distanceTraveledMeters / 1000).toFixed(2)} km
-              {' · '}
+              Distance traveled: {(vehicle.distanceTraveledMeters / 1000).toFixed(2)}
+              {' km · '}
               Progress: {vehicleProgress.toFixed(1)}%
             </p>
 

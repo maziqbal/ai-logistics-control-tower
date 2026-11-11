@@ -1,48 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLiveSimulation } from '../hooks/useLiveSimulation';
-import {
-  Activity,
-  AlertCircle,
-  CalendarDays,
-  CheckCircle2,
-  ChevronDown,
-  ClipboardList,
-  MapPin,
-  Package,
-  RefreshCw,
-  Route,
-  Truck,
-} from 'lucide-react';
+import { useDeliveryDays } from '../hooks/useDeliveryDays';
+import { useOperationsData } from '../hooks/useOperationsData';
+import { useRouteStops } from '../hooks/useRouteStops';
+import { useRouteGeometry } from '../hooks/useRouteGeometry';
+import { AlertCircle, CalendarDays, ChevronDown, ClipboardList, RefreshCw } from 'lucide-react';
 
 import { ParcelAssignmentPanel } from '../components/dispatch/ParcelAssignmentPanel';
 import { ParcelCreationPanel } from '../components/dispatch/ParcelCreationPanel';
 import { RouteAssignmentPanel } from '../components/dispatch/RouteAssignmentPanel';
 import { RouteMap } from '../components/dispatch/RouteMap';
-import {
-  logisticsApi,
-  type CreateParcelInput,
-  type DeliveryDay,
-  type DeliveryRoute,
-  type DeliveryStop,
-  type Parcel,
-  type RouteGeometryResponse,
-} from '../api/logistics-api';
-
-type RequestState<T> = {
-  key: string;
-  status: 'success' | 'error';
-  data: T;
-  error: string;
-};
-
-type OperationsData = {
-  routes: DeliveryRoute[];
-  parcels: Parcel[];
-};
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'An unexpected error occurred.';
-}
+import { OperationsStats } from '../components/dispatch/OperationsStats';
+import { DeliveryRoutesPanel } from '../components/dispatch/DeliveryRoutesPanel';
+import { RouteStopsPanel } from '../components/dispatch/RouteStopsPanel';
+import { logisticsApi, type CreateParcelInput } from '../api/logistics-api';
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('en-GB', {
@@ -77,103 +48,23 @@ function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => voi
 }
 
 export function OperationsOverviewPage() {
-  const [daysRequest, setDaysRequest] = useState<RequestState<DeliveryDay[]> | null>(null);
-
-  const [daysRetry, setDaysRetry] = useState(0);
+  // ALT-034: Delivery-day fetching is isolated; selection stays in this page.
+  const { daysRequest, daysReady, days, setDaysRetry } = useDeliveryDays();
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
-
-  const [operationsRequest, setOperationsRequest] = useState<RequestState<OperationsData> | null>(
-    null,
-  );
-
-  const [operationsRetry, setOperationsRetry] = useState(0);
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
 
-  const [stopsRequest, setStopsRequest] = useState<RequestState<DeliveryStop[]> | null>(null);
-
-  const [stopsRetry, setStopsRetry] = useState(0);
-
-  const [geometryRequest, setGeometryRequest] =
-    useState<RequestState<RouteGeometryResponse> | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    logisticsApi
-      .getDeliveryDays(controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setDaysRequest({
-            key: String(daysRetry),
-            status: 'success',
-            data,
-            error: '',
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setDaysRequest({
-            key: String(daysRetry),
-            status: 'error',
-            data: [],
-            error: getErrorMessage(error),
-          });
-        }
-      });
-
-    return () => controller.abort();
-  }, [daysRetry]);
-
-  const daysReady = daysRequest?.key === String(daysRetry);
-
-  const days = daysReady && daysRequest?.status === 'success' ? daysRequest.data : [];
-
   const currentDayId = selectedDayId === null ? (days[0]?.id ?? '') : selectedDayId;
 
-  useEffect(() => {
-    if (!currentDayId) return;
-
-    const controller = new AbortController();
-
-    Promise.all([
-      logisticsApi.getRoutes(currentDayId, controller.signal),
-      logisticsApi.getParcels(currentDayId, controller.signal),
-    ])
-      .then(([routes, parcels]) => {
-        if (!controller.signal.aborted) {
-          setOperationsRequest({
-            key: `${currentDayId}:${operationsRetry}`,
-            status: 'success',
-            data: { routes, parcels },
-            error: '',
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setOperationsRequest({
-            key: `${currentDayId}:${operationsRetry}`,
-            status: 'error',
-            data: { routes: [], parcels: [] },
-            error: getErrorMessage(error),
-          });
-        }
-      });
-
-    return () => controller.abort();
-  }, [currentDayId, operationsRetry]);
-
-  const operationsKey = `${currentDayId}:${operationsRetry}`;
-
-  const operationsReady = operationsRequest?.key === operationsKey;
-
-  const operationsSuccess = operationsReady && operationsRequest?.status === 'success';
-
-  const routes = operationsSuccess ? operationsRequest.data.routes : [];
-
-  const parcels = operationsSuccess ? operationsRequest.data.parcels : [];
+  // ALT-034: Routes and parcels fetching now lives in a dedicated hook.
+  const {
+    operationsRequest,
+    setOperationsRetry,
+    operationsReady,
+    operationsSuccess,
+    routes,
+    parcels,
+  } = useOperationsData(currentDayId);
 
   const currentRouteId =
     selectedRouteId && routes.some((route) => route.id === selectedRouteId)
@@ -188,125 +79,23 @@ export function OperationsOverviewPage() {
     error: liveSimulationError,
   } = useLiveSimulation(operationsSuccess ? currentRouteId : '');
 
-  useEffect(() => {
-    if (!currentRouteId || !operationsSuccess) return;
+  // ALT-034 Step 6A: Fetch route stops in an isolated hook.
+  const { stopsRequest, stopsReady, stopsSuccess, stops, setStopsRetry, stopsKey } = useRouteStops(
+    currentDayId,
+    currentRouteId,
+    operationsSuccess,
+  );
 
-    const controller = new AbortController();
-
-    logisticsApi
-      .getStops(currentRouteId, controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setStopsRequest({
-            key: `${currentDayId}:${currentRouteId}:${stopsRetry}`,
-            status: 'success',
-            data,
-            error: '',
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setStopsRequest({
-            key: `${currentDayId}:${currentRouteId}:${stopsRetry}`,
-            status: 'error',
-            data: [],
-            error: getErrorMessage(error),
-          });
-        }
-      });
-
-    return () => controller.abort();
-  }, [currentDayId, currentRouteId, operationsSuccess, stopsRetry]);
-
-  const stopsKey = `${currentDayId}:${currentRouteId}:${stopsRetry}`;
-
-  const stopsReady = stopsRequest?.key === stopsKey;
-
-  const stopsSuccess = stopsReady && stopsRequest?.status === 'success';
-
-  const stops = stopsSuccess ? [...stopsRequest.data].sort((a, b) => a.sequence - b.sequence) : [];
-
-  // Fetch routing data for the current route only.
-  // The request key prevents stale geometry appearing
-  // when switching routes or refreshing.
-  useEffect(() => {
-    if (!currentRouteId || !stopsSuccess) return;
-
-    const controller = new AbortController();
-
-    logisticsApi
-      .getRouteGeometry(currentRouteId, controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setGeometryRequest({
-            key: stopsKey,
-            status: 'success',
-            data,
-            error: '',
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setGeometryRequest({
-            key: stopsKey,
-            status: 'error',
-            data: {
-              routeId: currentRouteId,
-              status: 'no_route',
-              geometry: null,
-              distanceMeters: null,
-              durationSeconds: null,
-            },
-            error: getErrorMessage(error),
-          });
-        }
-      });
-
-    return () => controller.abort();
-  }, [currentRouteId, stopsSuccess, stopsKey]);
-
-  const geometryReady = geometryRequest?.key === stopsKey;
-
-  const geometrySuccess = geometryReady && geometryRequest?.status === 'success';
-
-  const routeGeometry = geometrySuccess ? geometryRequest.data : null;
-
-  const geometryLoading = stopsSuccess && !geometryReady;
-
-  const geometryError =
-    geometryReady && geometryRequest?.status === 'error' ? geometryRequest.error : null;
+  // ALT-034 Step 6B: OSRM geometry fetching is isolated in its own hook.
+  const { routeGeometry, geometryLoading, geometryError } = useRouteGeometry(
+    currentRouteId,
+    stopsSuccess,
+    stopsKey,
+  );
 
   const selectedDay = days.find((day) => day.id === currentDayId);
 
   const assignedCount = parcels.filter((parcel) => parcel.stopId !== null).length;
-
-  const assignmentPercent =
-    parcels.length > 0 ? Math.round((assignedCount / parcels.length) * 100) : 0;
-
-  const stats = [
-    {
-      label: 'Routes',
-      value: routes.length,
-      icon: Route,
-    },
-    {
-      label: 'Parcels',
-      value: parcels.length,
-      icon: Package,
-    },
-    {
-      label: 'Assigned Parcels',
-      value: assignedCount,
-      icon: CheckCircle2,
-    },
-    {
-      label: 'Unassigned Parcels',
-      value: parcels.length - assignedCount,
-      icon: Activity,
-    },
-  ];
 
   const selectedRoute = routes.find((route) => route.id === currentRouteId);
 
@@ -437,116 +226,27 @@ export function OperationsOverviewPage() {
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map(({ label, value, icon: Icon }) => (
-          <div
-            key={label}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500">{label}</span>
-
-              <Icon size={17} className="text-teal-700" />
-            </div>
-
-            <p className="mt-3 text-3xl font-bold text-[#14243b]">
-              {operationsSuccess ? value : '—'}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
-        <div className="min-w-42">
-          <p className="text-xs font-bold text-[#14243b]">Assignment Progress</p>
-
-          <p className="mt-1 text-[11px] text-slate-500">
-            {operationsSuccess
-              ? `${assignedCount} of ${parcels.length} parcels assigned`
-              : 'Waiting for assignment data'}
-          </p>
-        </div>
-
-        <div
-          className="h-2 min-w-30 flex-1 overflow-hidden rounded-full bg-slate-100"
-          role="progressbar"
-          aria-label="Parcel assignment progress"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={operationsSuccess ? assignmentPercent : 0}
-        >
-          <div
-            className="h-full rounded-full bg-teal-500"
-            style={{
-              width: `${operationsSuccess ? assignmentPercent : 0}%`,
-            }}
-          />
-        </div>
-
-        <span className="text-sm font-bold text-teal-700">
-          {operationsSuccess ? `${assignmentPercent}%` : '—'}
-        </span>
-      </div>
+      <OperationsStats
+        routesCount={routes.length}
+        parcelsCount={parcels.length}
+        assignedCount={assignedCount}
+        isReady={operationsSuccess}
+      />
 
       <div className="mt-5 grid items-start gap-4 xl:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.7fr)]">
         <div className="space-y-4">
-          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h3 className="font-bold text-[#14243b]">Delivery Routes</h3>
-
-              <p className="mt-1 text-xs text-slate-500">
-                {operationsSuccess ? `${routes.length} routes for selected day` : 'Route overview'}
-              </p>
-            </div>
-
-            <div className="space-y-2 p-3">
-              {!daysReady || (currentDayId && !operationsReady) ? (
-                <p role="status" className="p-4 text-sm text-slate-500">
-                  Loading routes...
-                </p>
-              ) : !currentDayId ? (
-                <p className="p-4 text-sm text-slate-500">No delivery days available.</p>
-              ) : !operationsSuccess ? (
-                <p className="p-4 text-sm text-slate-500">Routes could not be loaded.</p>
-              ) : routes.length === 0 ? (
-                <p className="p-4 text-sm text-slate-500">No routes for this delivery day.</p>
-              ) : (
-                routes.map((route, index) => (
-                  <button
-                    key={route.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedRouteId(route.id);
-                      setStopsRetry(0);
-                    }}
-                    aria-pressed={currentRouteId === route.id}
-                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                      currentRouteId === route.id
-                        ? 'border-teal-400 bg-teal-50/70'
-                        : 'border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-2 text-sm font-bold text-[#14243b]">
-                        <Truck size={16} className="text-teal-700" />
-                        Route {index + 1}
-                      </span>
-
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600 capitalize">
-                        {route.status}
-                      </span>
-                    </div>
-
-                    <p className="mt-2 text-xs text-slate-500">
-                      Driver: {route.driverId ? 'Assigned' : 'Unassigned'}
-                      {' · '}
-                      Vehicle: {route.vehicleId ? 'Assigned' : 'Unassigned'}
-                    </p>
-                  </button>
-                ))
-              )}
-            </div>
-          </section>
+          <DeliveryRoutesPanel
+            routes={routes}
+            selectedRouteId={currentRouteId}
+            daysReady={daysReady}
+            currentDayId={currentDayId}
+            operationsReady={operationsReady}
+            operationsSuccess={operationsSuccess}
+            onSelectRoute={(routeId) => {
+              setSelectedRouteId(routeId);
+              setStopsRetry(0);
+            }}
+          />
 
           {operationsSuccess && selectedRoute && (
             <RouteAssignmentPanel
@@ -635,79 +335,17 @@ export function OperationsOverviewPage() {
             />
           )}
 
-          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h3 className="font-bold text-[#14243b]">Route Stops &amp; Parcels</h3>
-
-              <p className="mt-1 text-xs text-slate-500">Stops displayed in delivery sequence</p>
-            </div>
-
-            <div className="space-y-3 p-4">
-              {!operationsSuccess ? (
-                <p className="text-sm text-slate-500">
-                  {operationsReady ? 'Route details unavailable.' : 'Waiting for route data...'}
-                </p>
-              ) : !currentRouteId ? (
-                <p className="text-sm text-slate-500">No route selected.</p>
-              ) : !stopsReady ? (
-                <p role="status" className="text-sm text-slate-500">
-                  Loading stops...
-                </p>
-              ) : !stopsSuccess ? (
-                <ErrorNotice
-                  message={`Unable to load stops: ${stopsRequest.error}`}
-                  onRetry={() => setStopsRetry((value) => value + 1)}
-                />
-              ) : stops.length === 0 ? (
-                <p className="text-sm text-slate-500">No stops have been added to this route.</p>
-              ) : (
-                stops.map((stop) => {
-                  const stopParcels = parcels.filter((parcel) => parcel.stopId === stop.id);
-
-                  return (
-                    <div key={stop.id} className="rounded-lg border border-slate-200 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50 text-sm font-bold text-teal-700">
-                          {stop.sequence}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-[#14243b]">{stop.locationKey}</p>
-
-                          <p className="mt-1 text-xs text-slate-500">
-                            {stopParcels.length} parcels
-                          </p>
-                        </div>
-
-                        <MapPin size={16} className="shrink-0 text-slate-400" />
-                      </div>
-
-                      {stopParcels.length > 0 && (
-                        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
-                          {stopParcels.map((parcel) => (
-                            <div
-                              key={parcel.id}
-                              className="flex items-start gap-2 rounded-lg bg-slate-50 p-3"
-                            >
-                              <Package size={15} className="mt-0.5 shrink-0 text-teal-700" />
-
-                              <div>
-                                <p className="text-xs font-bold text-[#14243b]">
-                                  {parcel.trackingNumber}
-                                </p>
-
-                                <p className="mt-1 text-xs text-slate-500">{parcel.destination}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </section>
+          <RouteStopsPanel
+            operationsSuccess={operationsSuccess}
+            operationsReady={operationsReady}
+            currentRouteId={currentRouteId}
+            stopsReady={stopsReady}
+            stopsSuccess={stopsSuccess}
+            stops={stops}
+            parcels={parcels}
+            stopsError={stopsRequest?.error ?? ''}
+            onRetryStops={() => setStopsRetry((value) => value + 1)}
+          />
         </div>
       </div>
 

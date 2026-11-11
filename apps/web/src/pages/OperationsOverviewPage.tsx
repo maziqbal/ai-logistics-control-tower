@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLiveSimulation } from '../hooks/useLiveSimulation';
 import { useDeliveryDays } from '../hooks/useDeliveryDays';
+import { useOperationsData } from '../hooks/useOperationsData';
 import { AlertCircle, CalendarDays, ChevronDown, ClipboardList, RefreshCw } from 'lucide-react';
 
 import { ParcelAssignmentPanel } from '../components/dispatch/ParcelAssignmentPanel';
@@ -13,9 +14,7 @@ import { RouteStopsPanel } from '../components/dispatch/RouteStopsPanel';
 import {
   logisticsApi,
   type CreateParcelInput,
-  type DeliveryRoute,
   type DeliveryStop,
-  type Parcel,
   type RouteGeometryResponse,
 } from '../api/logistics-api';
 
@@ -24,11 +23,6 @@ type RequestState<T> = {
   status: 'success' | 'error';
   data: T;
   error: string;
-};
-
-type OperationsData = {
-  routes: DeliveryRoute[];
-  parcels: Parcel[];
 };
 
 function getErrorMessage(error: unknown): string {
@@ -72,12 +66,6 @@ export function OperationsOverviewPage() {
   const { daysRequest, daysReady, days, setDaysRetry } = useDeliveryDays();
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
 
-  const [operationsRequest, setOperationsRequest] = useState<RequestState<OperationsData> | null>(
-    null,
-  );
-
-  const [operationsRetry, setOperationsRetry] = useState(0);
-
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
 
   const [stopsRequest, setStopsRequest] = useState<RequestState<DeliveryStop[]> | null>(null);
@@ -89,48 +77,15 @@ export function OperationsOverviewPage() {
 
   const currentDayId = selectedDayId === null ? (days[0]?.id ?? '') : selectedDayId;
 
-  useEffect(() => {
-    if (!currentDayId) return;
-
-    const controller = new AbortController();
-
-    Promise.all([
-      logisticsApi.getRoutes(currentDayId, controller.signal),
-      logisticsApi.getParcels(currentDayId, controller.signal),
-    ])
-      .then(([routes, parcels]) => {
-        if (!controller.signal.aborted) {
-          setOperationsRequest({
-            key: `${currentDayId}:${operationsRetry}`,
-            status: 'success',
-            data: { routes, parcels },
-            error: '',
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setOperationsRequest({
-            key: `${currentDayId}:${operationsRetry}`,
-            status: 'error',
-            data: { routes: [], parcels: [] },
-            error: getErrorMessage(error),
-          });
-        }
-      });
-
-    return () => controller.abort();
-  }, [currentDayId, operationsRetry]);
-
-  const operationsKey = `${currentDayId}:${operationsRetry}`;
-
-  const operationsReady = operationsRequest?.key === operationsKey;
-
-  const operationsSuccess = operationsReady && operationsRequest?.status === 'success';
-
-  const routes = operationsSuccess ? operationsRequest.data.routes : [];
-
-  const parcels = operationsSuccess ? operationsRequest.data.parcels : [];
+  // ALT-034: Routes and parcels fetching now lives in a dedicated hook.
+  const {
+    operationsRequest,
+    setOperationsRetry,
+    operationsReady,
+    operationsSuccess,
+    routes,
+    parcels,
+  } = useOperationsData(currentDayId);
 
   const currentRouteId =
     selectedRouteId && routes.some((route) => route.id === selectedRouteId)

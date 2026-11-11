@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLiveSimulation } from '../hooks/useLiveSimulation';
 import { useDeliveryDays } from '../hooks/useDeliveryDays';
 import { useOperationsData } from '../hooks/useOperationsData';
+import { useRouteStops } from '../hooks/useRouteStops';
 import { AlertCircle, CalendarDays, ChevronDown, ClipboardList, RefreshCw } from 'lucide-react';
 
 import { ParcelAssignmentPanel } from '../components/dispatch/ParcelAssignmentPanel';
@@ -14,7 +15,6 @@ import { RouteStopsPanel } from '../components/dispatch/RouteStopsPanel';
 import {
   logisticsApi,
   type CreateParcelInput,
-  type DeliveryStop,
   type RouteGeometryResponse,
 } from '../api/logistics-api';
 
@@ -68,10 +68,6 @@ export function OperationsOverviewPage() {
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
 
-  const [stopsRequest, setStopsRequest] = useState<RequestState<DeliveryStop[]> | null>(null);
-
-  const [stopsRetry, setStopsRetry] = useState(0);
-
   const [geometryRequest, setGeometryRequest] =
     useState<RequestState<RouteGeometryResponse> | null>(null);
 
@@ -100,44 +96,12 @@ export function OperationsOverviewPage() {
     error: liveSimulationError,
   } = useLiveSimulation(operationsSuccess ? currentRouteId : '');
 
-  useEffect(() => {
-    if (!currentRouteId || !operationsSuccess) return;
-
-    const controller = new AbortController();
-
-    logisticsApi
-      .getStops(currentRouteId, controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setStopsRequest({
-            key: `${currentDayId}:${currentRouteId}:${stopsRetry}`,
-            status: 'success',
-            data,
-            error: '',
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setStopsRequest({
-            key: `${currentDayId}:${currentRouteId}:${stopsRetry}`,
-            status: 'error',
-            data: [],
-            error: getErrorMessage(error),
-          });
-        }
-      });
-
-    return () => controller.abort();
-  }, [currentDayId, currentRouteId, operationsSuccess, stopsRetry]);
-
-  const stopsKey = `${currentDayId}:${currentRouteId}:${stopsRetry}`;
-
-  const stopsReady = stopsRequest?.key === stopsKey;
-
-  const stopsSuccess = stopsReady && stopsRequest?.status === 'success';
-
-  const stops = stopsSuccess ? [...stopsRequest.data].sort((a, b) => a.sequence - b.sequence) : [];
+  // ALT-034 Step 6A: Fetch route stops in an isolated hook.
+  const { stopsRequest, stopsReady, stopsSuccess, stops, setStopsRetry, stopsKey } = useRouteStops(
+    currentDayId,
+    currentRouteId,
+    operationsSuccess,
+  );
 
   // Fetch routing data for the current route only.
   // The request key prevents stale geometry appearing

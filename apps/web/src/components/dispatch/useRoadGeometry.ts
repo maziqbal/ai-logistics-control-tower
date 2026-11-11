@@ -105,5 +105,5 @@ export function useRoadGeometry(
       map.off('load', updateRoad);
       map.off('idle', updateRoad);
     };
-  }, [geometry]);
+  }, [mapRef, geometry]);
 }

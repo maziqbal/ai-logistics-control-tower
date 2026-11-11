@@ -24,14 +24,10 @@ export function DeliveryRoutesPanel({
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 px-5 py-4">
-        <h3 className="font-bold text-[#14243b]">
-          Delivery Routes
-        </h3>
+        <h3 className="font-bold text-[#14243b]">Delivery Routes</h3>
 
         <p className="mt-1 text-xs text-slate-500">
-          {operationsSuccess
-            ? `${routes.length} routes for selected day`
-            : 'Route overview'}
+          {operationsSuccess ? `${routes.length} routes for selected day` : 'Route overview'}
         </p>
       </div>
 
@@ -41,17 +37,11 @@ export function DeliveryRoutesPanel({
             Loading routes...
           </p>
         ) : !currentDayId ? (
-          <p className="p-4 text-sm text-slate-500">
-            No delivery days available.
-          </p>
+          <p className="p-4 text-sm text-slate-500">No delivery days available.</p>
         ) : !operationsSuccess ? (
-          <p className="p-4 text-sm text-slate-500">
-            Routes could not be loaded.
-          </p>
+          <p className="p-4 text-sm text-slate-500">Routes could not be loaded.</p>
         ) : routes.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">
-            No routes for this delivery day.
-          </p>
+          <p className="p-4 text-sm text-slate-500">No routes for this delivery day.</p>
         ) : (
           routes.map((route, index) => (
             <button

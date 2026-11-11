@@ -1,9 +1,4 @@
-import {
-  Activity,
-  CheckCircle2,
-  Package,
-  Route,
-} from 'lucide-react';
+import { Activity, CheckCircle2, Package, Route } from 'lucide-react';
 
 type OperationsStatsProps = {
   routesCount: number;
@@ -20,10 +15,7 @@ export function OperationsStats({
 }: OperationsStatsProps) {
   const unassignedCount = parcelsCount - assignedCount;
 
-  const assignmentPercent =
-    parcelsCount > 0
-      ? Math.round((assignedCount / parcelsCount) * 100)
-      : 0;
+  const assignmentPercent = parcelsCount > 0 ? Math.round((assignedCount / parcelsCount) * 100) : 0;
 
   const stats = [
     {
@@ -57,25 +49,19 @@ export function OperationsStats({
             className="rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500">
-                {label}
-              </span>
+              <span className="text-xs font-semibold text-slate-500">{label}</span>
 
               <Icon size={17} className="text-teal-700" />
             </div>
 
-            <p className="mt-3 text-3xl font-bold text-[#14243b]">
-              {isReady ? value : '—'}
-            </p>
+            <p className="mt-3 text-3xl font-bold text-[#14243b]">{isReady ? value : '—'}</p>
           </div>
         ))}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div className="min-w-42">
-          <p className="text-xs font-bold text-[#14243b]">
-            Assignment Progress
-          </p>
+          <p className="text-xs font-bold text-[#14243b]">Assignment Progress</p>
 
           <p className="mt-1 text-[11px] text-slate-500">
             {isReady

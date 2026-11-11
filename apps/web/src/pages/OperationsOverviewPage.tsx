@@ -1,14 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLiveSimulation } from '../hooks/useLiveSimulation';
-import {
-  AlertCircle,
-  CalendarDays,
-  ChevronDown,
-  ClipboardList,
-  MapPin,
-  Package,
-  RefreshCw,
-} from 'lucide-react';
+import { AlertCircle, CalendarDays, ChevronDown, ClipboardList, RefreshCw } from 'lucide-react';
 
 import { ParcelAssignmentPanel } from '../components/dispatch/ParcelAssignmentPanel';
 import { ParcelCreationPanel } from '../components/dispatch/ParcelCreationPanel';
@@ -16,6 +8,7 @@ import { RouteAssignmentPanel } from '../components/dispatch/RouteAssignmentPane
 import { RouteMap } from '../components/dispatch/RouteMap';
 import { OperationsStats } from '../components/dispatch/OperationsStats';
 import { DeliveryRoutesPanel } from '../components/dispatch/DeliveryRoutesPanel';
+import { RouteStopsPanel } from '../components/dispatch/RouteStopsPanel';
 import {
   logisticsApi,
   type CreateParcelInput,
@@ -518,79 +511,17 @@ export function OperationsOverviewPage() {
             />
           )}
 
-          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h3 className="font-bold text-[#14243b]">Route Stops &amp; Parcels</h3>
-
-              <p className="mt-1 text-xs text-slate-500">Stops displayed in delivery sequence</p>
-            </div>
-
-            <div className="space-y-3 p-4">
-              {!operationsSuccess ? (
-                <p className="text-sm text-slate-500">
-                  {operationsReady ? 'Route details unavailable.' : 'Waiting for route data...'}
-                </p>
-              ) : !currentRouteId ? (
-                <p className="text-sm text-slate-500">No route selected.</p>
-              ) : !stopsReady ? (
-                <p role="status" className="text-sm text-slate-500">
-                  Loading stops...
-                </p>
-              ) : !stopsSuccess ? (
-                <ErrorNotice
-                  message={`Unable to load stops: ${stopsRequest.error}`}
-                  onRetry={() => setStopsRetry((value) => value + 1)}
-                />
-              ) : stops.length === 0 ? (
-                <p className="text-sm text-slate-500">No stops have been added to this route.</p>
-              ) : (
-                stops.map((stop) => {
-                  const stopParcels = parcels.filter((parcel) => parcel.stopId === stop.id);
-
-                  return (
-                    <div key={stop.id} className="rounded-lg border border-slate-200 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50 text-sm font-bold text-teal-700">
-                          {stop.sequence}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-[#14243b]">{stop.locationKey}</p>
-
-                          <p className="mt-1 text-xs text-slate-500">
-                            {stopParcels.length} parcels
-                          </p>
-                        </div>
-
-                        <MapPin size={16} className="shrink-0 text-slate-400" />
-                      </div>
-
-                      {stopParcels.length > 0 && (
-                        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
-                          {stopParcels.map((parcel) => (
-                            <div
-                              key={parcel.id}
-                              className="flex items-start gap-2 rounded-lg bg-slate-50 p-3"
-                            >
-                              <Package size={15} className="mt-0.5 shrink-0 text-teal-700" />
-
-                              <div>
-                                <p className="text-xs font-bold text-[#14243b]">
-                                  {parcel.trackingNumber}
-                                </p>
-
-                                <p className="mt-1 text-xs text-slate-500">{parcel.destination}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </section>
+          <RouteStopsPanel
+            operationsSuccess={operationsSuccess}
+            operationsReady={operationsReady}
+            currentRouteId={currentRouteId}
+            stopsReady={stopsReady}
+            stopsSuccess={stopsSuccess}
+            stops={stops}
+            parcels={parcels}
+            stopsError={stopsRequest?.error ?? ''}
+            onRetryStops={() => setStopsRetry((value) => value + 1)}
+          />
         </div>
       </div>
 
